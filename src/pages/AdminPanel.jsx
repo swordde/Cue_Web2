@@ -2,7 +2,7 @@ import { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import { authUtils } from "../data/databaseUtils";
 import bookingDB from "../data/bookingDatabase.js";
-import adminSettings from "../data/adminSettings.js";
+import { gameService, slotService } from "../firebase/services";
 
 export default function AdminPanel() {
   const [bookings, setBookings] = useState([]);
@@ -13,17 +13,13 @@ export default function AdminPanel() {
   
   // Admin settings state
   const [games, setGames] = useState([]);
-  const [timeSlots, setTimeSlots] = useState([]);
-  const [selectedDate, setSelectedDate] = useState(new Date().toISOString().split('T')[0]);
-  const [selectedGame, setSelectedGame] = useState('');
-  const [newSlotTime, setNewSlotTime] = useState('');
-  const [newGame, setNewGame] = useState({
-    name: '',
-    image: '',
-    price: 0,
-    description: '',
-    category: 'Indoor'
-  });
+  const [selectedDate, setSelectedDate] = useState("");
+  const [selectedGame, setSelectedGame] = useState("");
+  const [slots, setSlots] = useState([]);
+  const [newSlotTime, setNewSlotTime] = useState("");
+  const [newGame, setNewGame] = useState({ name: "", price: 0, category: "", isActive: true });
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState("");
 
   useEffect(() => {
     if (!authUtils.isAdmin()) {
@@ -37,10 +33,8 @@ export default function AdminPanel() {
   const loadData = () => {
     const allBookings = bookingDB.getAllBookings();
     setBookings(allBookings);
-    setGames(adminSettings.getGames());
-    setTimeSlots(adminSettings.getTimeSlots());
-    console.log('Loaded games:', adminSettings.getGames());
-    console.log('Loaded time slots:', adminSettings.getTimeSlots());
+    loadGames();
+    loadSlots();
   };
 
   const handleDelete = (bookingId) => {
@@ -59,54 +53,92 @@ export default function AdminPanel() {
     (filterDate === '' || b.date === filterDate)
   );
 
-  // Slot Management Functions
-  const handleAddSlot = () => {
-    if (selectedDate && selectedGame && newSlotTime) {
-      console.log('Adding slot:', { selectedDate, selectedGame, newSlotTime });
-      const currentSlots = adminSettings.getSlotsForDate(selectedDate)[selectedGame] || [];
-      const updatedSlots = [...currentSlots, newSlotTime].sort();
-      adminSettings.setSlotConfiguration(selectedDate, selectedGame, updatedSlots);
-      setNewSlotTime('');
-      loadData();
-      alert('Slot added successfully!');
-    } else {
-      alert('Please select date, game, and time slot');
+  // Load games from Firestore
+  const loadGames = async () => {
+    setLoading(true);
+    try {
+      const allGames = await gameService.getAllGames();
+      setGames(allGames);
+    } catch (err) {
+      setError("Failed to load games");
+    } finally {
+      setLoading(false);
     }
   };
 
-  const handleRemoveSlot = (time) => {
-    const currentSlots = adminSettings.getSlotsForDate(selectedDate)[selectedGame] || [];
-    const updatedSlots = currentSlots.filter(slot => slot !== time);
-    adminSettings.setSlotConfiguration(selectedDate, selectedGame, updatedSlots);
-    loadData();
-  };
-
-  const handleAddGame = () => {
-    if (newGame.name) {
-      console.log('Adding game:', newGame);
-      adminSettings.addGame(newGame);
-      setNewGame({
-        name: '',
-        image: '',
-        price: 0,
-        description: '',
-        category: 'Indoor'
-      });
-      loadData();
-      alert('Game added successfully!');
-    } else {
-      alert('Please enter a game name');
+  // Load slots for selected game and date from Firestore
+  const loadSlots = async () => {
+    if (!selectedGame || !selectedDate) {
+      setSlots([]);
+      return;
+    }
+    setLoading(true);
+    try {
+      const slotList = await slotService.getSlotsForDate(selectedDate, selectedGame);
+      setSlots(slotList);
+    } catch (err) {
+      setError("Failed to load slots");
+    } finally {
+      setLoading(false);
     }
   };
 
-  const handleDeleteGame = (gameId) => {
-    adminSettings.deleteGame(gameId);
-    loadData();
+  // Add new slot to Firestore
+  const handleAddSlot = async () => {
+    if (!selectedGame || !selectedDate || !newSlotTime) return;
+    setLoading(true);
+    try {
+      const updatedSlots = [...slots, newSlotTime];
+      await slotService.updateSlotsForDate(selectedDate, selectedGame, updatedSlots);
+      setSlots(updatedSlots);
+      setNewSlotTime("");
+    } catch (err) {
+      setError("Failed to add slot");
+    } finally {
+      setLoading(false);
+    }
   };
 
-  const getSlotsForSelectedDate = () => {
-    if (!selectedDate || !selectedGame) return [];
-    return adminSettings.getSlotsForDate(selectedDate)[selectedGame] || [];
+  // Remove slot from Firestore
+  const handleDeleteSlot = async (slotTime) => {
+    if (!selectedGame || !selectedDate) return;
+    setLoading(true);
+    try {
+      const updatedSlots = slots.filter((s) => s !== slotTime);
+      await slotService.updateSlotsForDate(selectedDate, selectedGame, updatedSlots);
+      setSlots(updatedSlots);
+    } catch (err) {
+      setError("Failed to delete slot");
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleAddGame = async () => {
+    if (!newGame.name) return;
+    setLoading(true);
+    try {
+      await gameService.addGame(newGame);
+      const allGames = await gameService.getAllGames();
+      setGames(allGames);
+      setNewGame({ name: "", price: 0, category: "", isActive: true });
+    } catch (err) {
+      setError("Failed to add game");
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleDeleteGame = async (gameId) => {
+    setLoading(true);
+    try {
+      await gameService.deleteGame(gameId);
+      setGames(games.filter(g => g.id !== gameId));
+    } catch (err) {
+      setError("Failed to delete game");
+    } finally {
+      setLoading(false);
+    }
   };
 
   return (
@@ -279,7 +311,7 @@ export default function AdminPanel() {
                 onChange={e => setNewSlotTime(e.target.value)}
               >
                 <option value="">Select Time</option>
-                {timeSlots.map(time => (
+                {slots.map(time => (
                   <option key={time} value={time}>{time}</option>
                 ))}
               </select>
@@ -302,18 +334,18 @@ export default function AdminPanel() {
                 <h5 className="mb-0">Slots for {selectedDate} - {games.find(g => g.id === selectedGame)?.name}</h5>
               </div>
               <div className="card-body">
-                {getSlotsForSelectedDate().length === 0 ? (
+                {slots.length === 0 ? (
                   <p className="text-muted">No slots configured for this date and game.</p>
                 ) : (
                   <div className="row">
-                    {getSlotsForSelectedDate().map((time, index) => (
+                    {slots.map((time, index) => (
                       <div key={index} className="col-md-2 mb-2">
                         <div className="card">
                           <div className="card-body text-center">
                             <span className="fw-bold">{time}</span>
                             <button 
                               className="btn btn-danger btn-sm d-block w-100 mt-2"
-                              onClick={() => handleRemoveSlot(time)}
+                              onClick={() => handleDeleteSlot(time)}
                             >
                               Remove
                             </button>
@@ -349,16 +381,6 @@ export default function AdminPanel() {
                   />
                 </div>
                 <div className="col-md-3">
-                  <label className="fw-semibold">Image URL:</label>
-                  <input
-                    type="text"
-                    className="form-control"
-                    value={newGame.image}
-                    onChange={e => setNewGame({...newGame, image: e.target.value})}
-                    placeholder="Enter image URL"
-                  />
-                </div>
-                <div className="col-md-2">
                   <label className="fw-semibold">Price:</label>
                   <input
                     type="number"

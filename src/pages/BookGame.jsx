@@ -4,15 +4,16 @@ import GameSelector from "../components/GameSelector";
 import SlotGrid from "../components/SlotGrid";
 import BookingModal from "../components/BookingModal";
 import { Link, useNavigate } from 'react-router-dom';
-import { bookingUtils, authUtils } from "../data/databaseUtils";
-import adminSettings from "../data/adminSettings.js";
+import { authUtils } from "../data/databaseUtils";
+import { gameService, slotService, bookingService } from "../firebase/services";
 
 export default function BookGame() {
   const [games, setGames] = useState([]);
   const [selectedGame, setSelectedGame] = useState('');
   const [selectedDate, setSelectedDate] = useState(new Date().toISOString().split('T')[0]);
-  const [selectedTime, setSelectedTime] = useState(null);
+  const [slots, setSlots] = useState([]);
   const [showModal, setShowModal] = useState(false);
+  const [selectedTime, setSelectedTime] = useState(null);
   const [alert, setAlert] = useState({ message: '', type: '' });
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
@@ -20,55 +21,69 @@ export default function BookGame() {
 
   // Check authentication and load games
   useEffect(() => {
-    try {
-      if (!authUtils.isLoggedIn()) {
-        navigate('/login');
+    async function fetchGames() {
+      setLoading(true);
+      try {
+        if (!authUtils.isLoggedIn()) {
+          navigate('/login');
+          return;
+        }
+        const allGames = await gameService.getAllGames();
+        setGames(allGames.filter(game => game.isActive));
+        if (allGames.length > 0 && !selectedGame) {
+          setSelectedGame(allGames[0].id);
+        }
+      } catch (err) {
+        setError('Error loading games');
+      } finally {
+        setLoading(false);
+      }
+    }
+    fetchGames();
+    // eslint-disable-next-line
+  }, [navigate]);
+
+  // Load slots for selected game and date
+  useEffect(() => {
+    async function fetchSlots() {
+      if (!selectedGame) {
+        setSlots([]);
         return;
       }
-      
-      // Load games from admin settings
-      const availableGames = adminSettings.getGames().filter(game => game.isActive);
-      console.log('Loaded games:', availableGames);
-      setGames(availableGames);
-      
-      // Set first game as default if available
-      if (availableGames.length > 0 && !selectedGame) {
-        setSelectedGame(availableGames[0].id);
+      setLoading(true);
+      try {
+        const slotList = await slotService.getSlotsForDate(selectedDate, selectedGame);
+        setSlots(slotList);
+      } catch (err) {
+        setError('Error loading slots');
+      } finally {
+        setLoading(false);
       }
-      
-      setLoading(false);
-    } catch (err) {
-      console.error('Error loading games:', err);
-      setError(err.message);
-      setLoading(false);
     }
-  }, [navigate, selectedGame]);
+    fetchSlots();
+  }, [selectedDate, selectedGame]);
 
-  // Get slots from admin settings
-  const slots = adminSettings.getSlotsForDate(selectedDate)[selectedGame] || [];
   const selectedGameObj = games.find(g => g.id === selectedGame);
 
-  // Show alert for 3 seconds
-  const showAlert = (message, type) => {
-    setAlert({ message, type });
-    setTimeout(() => setAlert({ message: '', type: '' }), 3000);
-  };
-
-  const handleBooking = () => {
+  // Handle booking
+  const handleBooking = async (bookingData) => {
+    setLoading(true);
     try {
-      // Use the new database system to create booking
-      const booking = bookingUtils.createBooking({
-        game: selectedGame,
+      await bookingService.createBooking({
+        ...bookingData,
+        game: selectedGameObj?.id,
         date: selectedDate,
         time: selectedTime,
-        amount: 0, // Default amount
-        notes: ''
+        user: localStorage.getItem('mobile'),
+        status: 'Pending',
+        createdAt: new Date().toISOString(),
       });
-      
-      showAlert(`Booking request submitted for ${selectedGameObj.name} at ${selectedTime} on ${selectedDate}. Awaiting admin approval.`, 'success');
+      setAlert({ message: 'Booking successful!', type: 'success' });
       setShowModal(false);
-    } catch (error) {
-      showAlert('Error creating booking. Please try again.', 'danger');
+    } catch (err) {
+      setAlert({ message: 'Booking failed. Please try again.', type: 'danger' });
+    } finally {
+      setLoading(false);
     }
   };
 

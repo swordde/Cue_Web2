@@ -4,8 +4,7 @@ import 'react-calendar/dist/Calendar.css';
 import { useNavigate, Link } from 'react-router-dom';
 import GameSelector from "../components/GameSelector";
 import SlotGrid from "../components/SlotGrid";
-import { games } from "../data/mockGames";
-import { mockSlots } from "../data/mockSlots";
+import { gameService, slotService, bookingService } from "../firebase/services";
 import { authUtils, bookingUtils, analyticsUtils } from "../data/databaseUtils";
 import userDB from "../data/userDatabase.js";
 
@@ -17,6 +16,9 @@ const SIDEBAR_LINKS = [
 
 export default function UserPanel() {
   const [date, setDate] = useState(new Date());
+  const [games, setGames] = useState([]);
+  const [selectedGame, setSelectedGame] = useState("");
+  const [slots, setSlots] = useState([]);
   const [bookings, setBookings] = useState([]);
   const [activeTab, setActiveTab] = useState('calendar');
   const [user, setUser] = useState(null);
@@ -26,6 +28,68 @@ export default function UserPanel() {
   const [editGame, setEditGame] = useState(null);
   const [editDate, setEditDate] = useState("");
   const [editTime, setEditTime] = useState("");
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState("");
+
+  // Load games from Firestore
+  useEffect(() => {
+    async function fetchGames() {
+      setLoading(true);
+      try {
+        const allGames = await gameService.getAllGames();
+        setGames(allGames.filter(game => game.isActive));
+        if (allGames.length > 0 && !selectedGame) {
+          setSelectedGame(allGames[0].id);
+        }
+      } catch (err) {
+        setError("Failed to load games");
+      } finally {
+        setLoading(false);
+      }
+    }
+    fetchGames();
+  }, [selectedGame]);
+
+  // Load slots for selected game and date
+  useEffect(() => {
+    async function fetchSlots() {
+      if (!selectedGame) {
+        setSlots([]);
+        return;
+      }
+      setLoading(true);
+      try {
+        const slotList = await slotService.getSlotsForDate(date.toISOString().split('T')[0], selectedGame);
+        setSlots(slotList);
+      } catch (err) {
+        setError("Failed to load slots");
+      } finally {
+        setLoading(false);
+      }
+    }
+    fetchSlots();
+  }, [selectedGame, date]);
+
+  // Load user bookings from Firestore
+  useEffect(() => {
+    async function fetchBookings() {
+      setLoading(true);
+      try {
+        const mobile = localStorage.getItem('mobile');
+        if (!mobile) {
+          setBookings([]);
+          return;
+        }
+        const userBookings = await bookingService.getUserBookings(mobile);
+        setBookings(userBookings);
+      } catch (err) {
+        setError("Failed to load bookings");
+      } finally {
+        setLoading(false);
+      }
+    }
+    fetchBookings();
+  }, []);
 
   // Check authentication and load user data
   useEffect(() => {
@@ -250,10 +314,10 @@ export default function UserPanel() {
                         />
                         <label className="mb-2">Time Slot:</label>
                         <SlotGrid
-                          slots={mockSlots[editDate]?.[editGame] || []}
+                          slots={slots}
                           onBook={setEditTime}
                           bookings={bookings.filter((_, i) => i !== editIndex)}
-                          selectedGame={editGame}
+                          selectedGame={selectedGame}
                           selectedDate={editDate}
                         />
                         {editTime && <div className="mt-2">Selected: <b>{editTime}</b></div>}

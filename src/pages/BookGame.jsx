@@ -14,22 +14,33 @@ export default function BookGame() {
   const [selectedTime, setSelectedTime] = useState(null);
   const [showModal, setShowModal] = useState(false);
   const [alert, setAlert] = useState({ message: '', type: '' });
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState(null);
   const navigate = useNavigate();
 
   // Check authentication and load games
   useEffect(() => {
-    if (!authUtils.isLoggedIn()) {
-      navigate('/login');
-      return;
-    }
-    
-    // Load games from admin settings
-    const availableGames = adminSettings.getGames().filter(game => game.isActive);
-    setGames(availableGames);
-    
-    // Set first game as default if available
-    if (availableGames.length > 0 && !selectedGame) {
-      setSelectedGame(availableGames[0].id);
+    try {
+      if (!authUtils.isLoggedIn()) {
+        navigate('/login');
+        return;
+      }
+      
+      // Load games from admin settings
+      const availableGames = adminSettings.getGames().filter(game => game.isActive);
+      console.log('Loaded games:', availableGames);
+      setGames(availableGames);
+      
+      // Set first game as default if available
+      if (availableGames.length > 0 && !selectedGame) {
+        setSelectedGame(availableGames[0].id);
+      }
+      
+      setLoading(false);
+    } catch (err) {
+      console.error('Error loading games:', err);
+      setError(err.message);
+      setLoading(false);
     }
   }, [navigate, selectedGame]);
 
@@ -60,6 +71,36 @@ export default function BookGame() {
       showAlert('Error creating booking. Please try again.', 'danger');
     }
   };
+
+  if (loading) {
+    return (
+      <div className="container my-5">
+        <div className="text-center">
+          <div className="spinner-border text-primary" role="status">
+            <span className="visually-hidden">Loading...</span>
+          </div>
+          <p className="mt-3">Loading games...</p>
+        </div>
+      </div>
+    );
+  }
+
+  if (error) {
+    return (
+      <div className="container my-5">
+        <div className="alert alert-danger">
+          <h4>Error Loading Games</h4>
+          <p>{error}</p>
+          <button 
+            className="btn btn-primary" 
+            onClick={() => window.location.reload()}
+          >
+            Retry
+          </button>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="container my-5">

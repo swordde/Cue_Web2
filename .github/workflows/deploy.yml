@@ -3,17 +3,11 @@ name: Deploy to GitHub Pages
 on:
   push:
     branches: [ main ]
-  pull_request:
-    branches: [ main ]
 
 permissions:
   contents: read
   pages: write
   id-token: write
-
-concurrency:
-  group: "pages"
-  cancel-in-progress: false
 
 jobs:
   build-and-deploy:
@@ -34,23 +28,13 @@ jobs:
     - name: Build
       run: npm run build
 
-    # Option 1: Using peaceiris/actions-gh-pages (requires PAT_TOKEN)
-    - name: Deploy to GitHub Pages
-      uses: peaceiris/actions-gh-pages@v3
-      if: github.ref == 'refs/heads/main'
-      with:
-        github_token: ${{ secrets.PAT_TOKEN }}
-        publish_dir: ./dist
+    - name: Setup Pages
+      uses: actions/configure-pages@v3
 
-    # Option 2: Using GitHub's official Pages action (no PAT needed)
-    # - name: Setup Pages
-    #   uses: actions/configure-pages@v3
-    # 
-    # - name: Upload artifact
-    #   uses: actions/upload-pages-artifact@v2
-    #   with:
-    #     path: './dist'
-    # 
-    # - name: Deploy to GitHub Pages
-    #   id: deployment
-    #   uses: actions/deploy-pages@v2 
+    - name: Upload artifact
+      uses: actions/upload-pages-artifact@v2
+      with:
+        path: './dist'
+
+    - name: Deploy to GitHub Pages
+      uses: actions/deploy-pages@v2 

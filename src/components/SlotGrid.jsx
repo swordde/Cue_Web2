@@ -67,7 +67,7 @@ export default function SlotGrid({ slots, onBook, selectedGame, selectedDate }) 
                 <span className="rounded-circle bg-info d-inline-block" style={{ width: 28, height: 28 }}></span>
                 <span className="rounded-circle bg-warning d-inline-block" style={{ width: 28, height: 28 }}></span>
               </div>
-              <a href="#" className="small text-primary fw-semibold text-decoration-underline">See more &gt;</a>
+              <button className="btn btn-link small text-primary fw-semibold text-decoration-underline p-0">See more &gt;</button>
             </div>
           </div>
         </div>

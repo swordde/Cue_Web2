@@ -113,7 +113,7 @@ export default function Dashboard() {
                   <span className="display-3 mb-3">{f.icon}</span>
                   <span className="h5 fw-bold mb-0">{f.label}</span>
                 </div>
-                <a href={f.path} className="stretched-link"></a>
+                <Link to={f.path} className="stretched-link"></Link>
               </div>
             </div>
           ))}

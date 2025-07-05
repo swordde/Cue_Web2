@@ -1,14 +1,31 @@
 # Deployment Guide
 
-## Quick Deployment Steps
+## GitHub Pages Deployment (Recommended)
 
-### 1. Build the Application
+### 1. Automatic Deployment (GitHub Actions)
+The app is configured with GitHub Actions for automatic deployment.
+
+1. Push your code to the `main` branch
+2. GitHub Actions will automatically build and deploy
+3. Your app will be available at: `https://yourusername.github.io/cueweb2/`
+
+### 2. Manual Deployment
+If you prefer manual deployment:
+
+1. Build the application:
 ```bash
 npm run build
 ```
 
-### 2. Deploy the `dist` folder
-The built application is in the `dist` folder. Upload this to your hosting provider.
+2. Go to your repository Settings → Pages
+3. Set source to "Deploy from a branch"
+4. Select `gh-pages` branch and `/ (root)` folder
+5. Save the settings
+
+### 3. Configure GitHub Pages
+1. Go to your repository Settings → Pages
+2. Set source to "GitHub Actions"
+3. Your app will be deployed automatically on push to main branch
 
 ### 3. Configure Server (if needed)
 
@@ -32,12 +49,23 @@ location / {
 
 ## Troubleshooting
 
+### GitHub Pages Specific Issues:
+
+**Issue: 404 errors on direct navigation**
+- ✅ Fixed: Using HashRouter instead of BrowserRouter
+- ✅ Added GitHub Pages routing scripts
+- ✅ URLs now use hash routing (#/route)
+
+**Issue: Assets not loading**
+- ✅ Fixed: Added base path `/cueweb2/` in vite.config.js
+- ✅ Assets are now properly referenced
+
 ### If the app doesn't load:
 
 1. **Check Browser Console**
    - Open Developer Tools (F12)
    - Look for errors in the Console tab
-   - Visit `/test` route to run diagnostics
+   - Visit `#/test` route to run diagnostics
 
 2. **Common Issues:**
 
@@ -55,13 +83,13 @@ location / {
    - Verify browser supports localStorage
    - Check for privacy mode restrictions
 
-3. **Test Routes:**
-   - `/` - Home page
-   - `/test` - Deployment diagnostics
-   - `/login` - Login page
-   - `/dashboard` - Dashboard (requires login)
-   - `/admin` - Admin panel (requires admin login)
-   - `/book` - Booking page (requires login)
+3. **Test Routes (GitHub Pages):**
+   - `#/` - Home page
+   - `#/test` - Deployment diagnostics
+   - `#/login` - Login page
+   - `#/dashboard` - Dashboard (requires login)
+   - `#/admin` - Admin panel (requires admin login)
+   - `#/book` - Booking page (requires login)
 
 ### Admin Access
 - Use mobile number: `9999999999` for admin access

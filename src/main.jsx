@@ -1,6 +1,6 @@
 import React, { StrictMode } from 'react'
 import { createRoot } from 'react-dom/client'
-import { BrowserRouter, Routes, Route } from 'react-router-dom'
+import { HashRouter, Routes, Route } from 'react-router-dom'
 
 import Home from './pages/Home.jsx'
 import AdminPanel from './pages/AdminPanel.jsx'
@@ -67,19 +67,19 @@ try {
 createRoot(document.getElementById('root')).render(
   <StrictMode>
     <ErrorBoundary>
-      <BrowserRouter>
+      <HashRouter>
         <Routes>
           <Route path="/main" element={<MainPage />} />
           <Route path="/" element={<Home />} />
           <Route path="/book" element={<BookGame />} />
           <Route path="/admin" element={<AdminPanel />} />
           <Route path="/user" element={<UserPanel />} />
+          <Route path="/test" element={<DeploymentTest />} />
           <Route path="/login" element={<Login />} />
           <Route path="/dashboard" element={<Dashboard />} />
-          <Route path="/test" element={<DeploymentTest />} />
           {/* Add more routes here as needed */}
         </Routes>
-      </BrowserRouter>
+      </HashRouter>
     </ErrorBoundary>
   </StrictMode>,
 )

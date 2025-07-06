@@ -1,11 +1,14 @@
 // src/pages/BookGame.jsx
 import { useState, useEffect } from "react";
+import Loading from "../components/Loading";
+import { userService } from "../firebase/services";
 import GameSelector from "../components/GameSelector";
 import SlotGrid from "../components/SlotGrid";
 import BookingModal from "../components/BookingModal";
 import { Link, useNavigate } from 'react-router-dom';
-import { authUtils } from "../data/databaseUtils";
 import { gameService, slotService, bookingService } from "../firebase/services";
+import { auth } from "../firebase/config";
+import { onAuthStateChanged } from "firebase/auth";
 
 export default function BookGame() {
   const [games, setGames] = useState([]);
@@ -17,17 +20,35 @@ export default function BookGame() {
   const [alert, setAlert] = useState({ message: '', type: '' });
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
+  const [currentUser, setCurrentUser] = useState(null);
+  const [userName, setUserName] = useState("");
+  const [userBookings, setUserBookings] = useState([]);
   const navigate = useNavigate();
 
-  // Check authentication and load games
+  // Check authentication
   useEffect(() => {
+    const unsubscribe = onAuthStateChanged(auth, async (user) => {
+      if (!user) {
+        navigate('/login');
+      } else {
+        setCurrentUser(user);
+        // Fetch user name from Firestore
+        const userData = await userService.getUserByMobile(user.phoneNumber || user.email);
+        setUserName(userData?.name || "User");
+        // Fetch user's bookings for double booking prevention
+        const bookings = await bookingService.getUserBookings(user.phoneNumber || user.email);
+        setUserBookings(bookings);
+      }
+    });
+    return () => unsubscribe();
+  }, [navigate]);
+
+  // Load games only after authentication
+  useEffect(() => {
+    if (!currentUser) return;
     async function fetchGames() {
       setLoading(true);
       try {
-        if (!authUtils.isLoggedIn()) {
-          navigate('/login');
-          return;
-        }
         const allGames = await gameService.getAllGames();
         setGames(allGames.filter(game => game.isActive));
         if (allGames.length > 0 && !selectedGame) {
@@ -41,7 +62,7 @@ export default function BookGame() {
     }
     fetchGames();
     // eslint-disable-next-line
-  }, [navigate]);
+  }, [currentUser]);
 
   // Load slots for selected game and date
   useEffect(() => {
@@ -61,25 +82,32 @@ export default function BookGame() {
       }
     }
     fetchSlots();
-  }, [selectedDate, selectedGame]);
+  }, [selectedDate, selectedGame, selectedGame]);
 
   const selectedGameObj = games.find(g => g.id === selectedGame);
 
   // Handle booking
-  const handleBooking = async (bookingData) => {
+  const handleBooking = async () => {
+    if (!currentUser) {
+      setAlert({ message: 'Please login to book a slot.', type: 'danger' });
+      return;
+    }
+
     setLoading(true);
     try {
       await bookingService.createBooking({
-        ...bookingData,
         game: selectedGameObj?.id,
         date: selectedDate,
         time: selectedTime,
-        user: localStorage.getItem('mobile'),
+        user: currentUser.phoneNumber || currentUser.email,
         status: 'Pending',
         createdAt: new Date().toISOString(),
       });
-      setAlert({ message: 'Booking successful!', type: 'success' });
+      setAlert({ message: `Booking successful!\nGame: ${selectedGameObj?.name}\nDate: ${selectedDate}\nTime: ${selectedTime}` , type: 'success' });
       setShowModal(false);
+      // Refresh user bookings to prevent double booking
+      const bookings = await bookingService.getUserBookings(currentUser.phoneNumber || currentUser.email);
+      setUserBookings(bookings);
     } catch (err) {
       setAlert({ message: 'Booking failed. Please try again.', type: 'danger' });
     } finally {
@@ -88,17 +116,9 @@ export default function BookGame() {
   };
 
   if (loading) {
-    return (
-      <div className="container my-5">
-        <div className="text-center">
-          <div className="spinner-border text-primary" role="status">
-            <span className="visually-hidden">Loading...</span>
-          </div>
-          <p className="mt-3">Loading games...</p>
-        </div>
-      </div>
-    );
+    return <Loading message="Loading games..." />;
   }
+
 
   if (error) {
     return (
@@ -116,7 +136,6 @@ export default function BookGame() {
       </div>
     );
   }
-
   return (
     <div className="container my-5">
       {alert.message && (
@@ -125,61 +144,58 @@ export default function BookGame() {
           <button type="button" className="btn-close" onClick={() => setAlert({ message: '', type: '' })}></button>
         </div>
       )}
-      <div className="d-flex justify-content-between align-items-center mb-3">
-        <Link to="/dashboard" className="btn btn-secondary">Go to Dashboard</Link>
-      </div>
-      <h1 className="h3 fw-bold mb-4 text-center"> Book a Game Slot</h1>
+      <h1 className="h4 fw-bold mb-4 text-center">Book a Game Slot</h1>
 
-      {/* Filters */}
-      <div className="row mb-4">
-        <div className="col-md-6 mb-2">
-          <label className="fw-semibold me-2">Game:</label>
-          <select
-            className="form-select d-inline-block w-auto"
-            value={selectedGame}
-            onChange={e => setSelectedGame(e.target.value)}
-          >
-            <option value="">Select a game</option>
-            {games.map(g => (
-              <option key={g.id} value={g.id}>{g.name}</option>
-            ))}
-          </select>
+      {/* Game Cards Horizontal Scroll */}
+      <div className="mb-4" style={{ overflowX: 'auto', whiteSpace: 'nowrap', paddingBottom: 8 }}>
+        <div style={{ display: 'inline-flex', gap: '1rem' }}>
+          {games.map(game => (
+            <div
+              key={game.id}
+              className={`card shadow-sm ${selectedGame === game.id ? 'border-primary border-2' : ''}`}
+              style={{ minWidth: 220, maxWidth: 240, cursor: 'pointer', display: 'inline-block', verticalAlign: 'top' }}
+              onClick={() => setSelectedGame(game.id)}
+            >
+              {game.image && (
+                <img src={game.image} alt={game.name + ' image'} className="card-img-top" style={{ maxHeight: '140px', objectFit: 'cover' }} />
+              )}
+              <div className="card-body text-center">
+                <h5 className="card-title mb-2">{game.name}</h5>
+                {game.category && <span className="badge bg-info text-dark mb-2">{game.category}</span>}
+                <div className="text-muted small mb-2">₹{game.price || 0}</div>
+                {game.description && <div className="text-secondary small">{game.description.substring(0, 60)}{game.description.length > 60 ? '...' : ''}</div>}
+              </div>
+              {selectedGame === game.id && <div className="card-footer bg-primary text-white text-center">Selected</div>}
+            </div>
+          ))}
         </div>
-        <div className="col-md-6 mb-2">
+      </div>
+
+      {/* Date Picker */}
+      <div className="row mb-4 justify-content-center">
+        <div className="col-md-4 col-12">
           <label className="fw-semibold me-2">Date:</label>
           <input
             type="date"
-            className="form-control d-inline-block w-auto"
+            className="form-control"
             value={selectedDate}
             onChange={e => setSelectedDate(e.target.value)}
           />
         </div>
       </div>
 
-      {/* Prominent Game Card */}
-      {selectedGameObj && (
-        <div className="card shadow-sm mb-4 p-4 d-flex flex-column align-items-center border-primary border-2">
-          {selectedGameObj?.image && (
-            <img
-              src={selectedGameObj.image}
-              alt={selectedGameObj.name}
-              className="mb-3 rounded shadow"
-              style={{ width: '120px', height: '120px', objectFit: 'cover' }}
-            />
-          )}
-          <h2 className="h4 fw-bold text-primary mb-2">{selectedGameObj?.name}</h2>
-          <p className="text-muted mb-2">₹{selectedGameObj?.price || 0}</p>
-          {selectedGameObj?.description && (
-            <p className="text-center text-muted small">{selectedGameObj.description}</p>
-          )}
-        </div>
-      )}
+      
 
+      {/* Slot Grid for selected game */}
       {selectedGame ? (
-        <SlotGrid slots={slots} onBook={(time) => {
-          setSelectedTime(time);
-          setShowModal(true);
-        }} />
+        <SlotGrid
+          slots={slots}
+          onBook={(time) => {
+            setSelectedTime(time);
+            setShowModal(true);
+          }}
+          bookedTimes={userBookings.filter(b => b.game === selectedGame && b.date === selectedDate).map(b => b.time)}
+        />
       ) : (
         <div className="text-center text-muted py-5">
           <h5>Please select a game to view available slots</h5>

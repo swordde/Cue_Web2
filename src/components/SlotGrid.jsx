@@ -1,21 +1,8 @@
 // src/components/SlotGrid.jsx
 import { useEffect, useState } from 'react';
-import bookingDB from '../data/bookingDatabase.js';
 
-export default function SlotGrid({ slots, onBook, selectedGame, selectedDate }) {
-  const [bookedTimes, setBookedTimes] = useState([]);
-
-  // Get booked times for the selected date and game
-  useEffect(() => {
-    const bookings = bookingDB.getAllBookings();
-    const bookedForDate = bookings.filter(b => 
-      b.date === selectedDate && 
-      b.game === selectedGame && 
-      b.status !== 'Cancelled'
-    );
-    setBookedTimes(bookedForDate.map(b => b.time));
-  }, [selectedDate, selectedGame]);
-
+export default function SlotGrid({ slots, onBook, bookedTimes = [], onCancel }) {
+  const [dropdownOpen, setDropdownOpen] = useState(null);
   // Determine if we need a 'See more' card
   const maxCards = 4;
   const showSeeMore = slots.length > maxCards;
@@ -31,25 +18,37 @@ export default function SlotGrid({ slots, onBook, selectedGame, selectedDate }) 
           </div>
         </div>
       ) : (
-                displaySlots.map((time, i) => {
+        displaySlots.map((time, i) => {
           const isBooked = bookedTimes.includes(time);
           return (
-            <div key={i} className="col-6 mb-3">
-              <div className={`card shadow-sm h-100 d-flex flex-column align-items-center justify-content-center ${isBooked ? 'opacity-50' : ''}`} style={{ minHeight: '100px', minWidth: '120px', maxWidth: '180px' }}>
+            <div key={i} className="col-12 col-sm-6 mb-3">
+              <div className={`card shadow-sm h-100 d-flex flex-column align-items-center justify-content-center ${isBooked ? 'opacity-75' : ''}`} style={{ minHeight: '100px', minWidth: '120px', maxWidth: '320px' }}>
                 <div className="card-body d-flex flex-column align-items-center justify-content-center p-3">
                   <span className="fw-semibold mb-1" style={{ fontSize: '1rem' }}>{time}</span>
-                  {isBooked ? (
-                    <span className="badge bg-danger mb-2">Booked</span>
-                  ) : (
-                    <span className="badge bg-success mb-2">Available</span>
-                  )}
-                  {!isBooked && (
+                  <div className="dropdown mt-2">
                     <button
-                      onClick={() => onBook(time)}
-                      className="btn btn-outline-primary btn-sm mt-1"
+                      className="btn btn-outline-primary btn-sm dropdown-toggle"
+                      type="button"
+                      id={`dropdownMenuButton${i}`}
+                      data-bs-toggle="dropdown"
+                      aria-expanded="false"
+                      onClick={() => setDropdownOpen(dropdownOpen === i ? null : i)}
                     >
-                      Book
+                      Actions
                     </button>
+                    <ul className={`dropdown-menu${dropdownOpen === i ? ' show' : ''}`} aria-labelledby={`dropdownMenuButton${i}`} style={{ minWidth: 120 }}>
+                      {!isBooked && (
+                        <li><button className="dropdown-item" onClick={() => { setDropdownOpen(null); onBook(time); }}>Book</button></li>
+                      )}
+                      {isBooked && onCancel && (
+                        <li><button className="dropdown-item text-danger" onClick={() => { setDropdownOpen(null); onCancel(time); }}>Cancel</button></li>
+                      )}
+                    </ul>
+                  </div>
+                  {isBooked ? (
+                    <span className="badge bg-danger mt-2">Booked</span>
+                  ) : (
+                    <span className="badge bg-success mt-2">Available</span>
                   )}
                 </div>
               </div>
@@ -58,8 +57,8 @@ export default function SlotGrid({ slots, onBook, selectedGame, selectedDate }) 
         })
       )}
       {showSeeMore && slots.length > 0 && (
-        <div className="col-6 mb-3">
-          <div className="card shadow-sm h-100 d-flex flex-column align-items-center justify-content-center" style={{ minHeight: '100px', minWidth: '120px', maxWidth: '180px' }}>
+        <div className="col-12 col-sm-6 mb-3">
+          <div className="card shadow-sm h-100 d-flex flex-column align-items-center justify-content-center" style={{ minHeight: '100px', minWidth: '120px', maxWidth: '320px' }}>
             <div className="card-body d-flex flex-column align-items-center justify-content-center p-3">
               <div className="d-flex flex-wrap gap-1 mb-2">
                 <span className="rounded-circle bg-secondary d-inline-block" style={{ width: 28, height: 28 }}></span>

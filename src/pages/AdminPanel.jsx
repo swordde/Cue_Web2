@@ -1,11 +1,17 @@
 import { useState, useEffect } from "react";
+import Loading from "../components/Loading";
+import { LineChart, Line, XAxis, YAxis, Tooltip, ResponsiveContainer, CartesianGrid } from 'recharts';
+import { userService } from "../firebase/services";
 import { useNavigate } from "react-router-dom";
-import { authUtils } from "../data/databaseUtils";
-import bookingDB from "../data/bookingDatabase.js";
-import { gameService, slotService } from "../firebase/services";
+import { gameService, slotService, bookingService, realtimeService } from "../firebase/services";
+import { auth } from "../firebase/config";
+import { onAuthStateChanged, signOut, getIdTokenResult } from "firebase/auth";
 
 export default function AdminPanel() {
   const [bookings, setBookings] = useState([]);
+  const [users, setUsers] = useState([]);
+  const [userMap, setUserMap] = useState({});
+  const [search, setSearch] = useState("");
   const [activeTab, setActiveTab] = useState('bookings');
   const navigate = useNavigate();
   const [filterGame, setFilterGame] = useState('');
@@ -17,52 +23,101 @@ export default function AdminPanel() {
   const [selectedGame, setSelectedGame] = useState("");
   const [slots, setSlots] = useState([]);
   const [newSlotTime, setNewSlotTime] = useState("");
+  // Standard hourly time slots from 9:00 AM to 9:00 PM
+  const timeSlotOptions = [
+    "09:00 AM", "10:00 AM", "11:00 AM", "12:00 PM",
+    "01:00 PM", "02:00 PM", "03:00 PM", "04:00 PM",
+    "05:00 PM", "06:00 PM", "07:00 PM", "08:00 PM", "09:00 PM", "10:00 PM", "11:00 PM", "12:00 AM"
+  ];
   const [newGame, setNewGame] = useState({ name: "", price: 0, category: "", isActive: true });
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
+  const [currentUser, setCurrentUser] = useState(null);
+  const [adminName, setAdminName] = useState("");
+  const [isAdmin, setIsAdmin] = useState(null); // null = checking, false = not admin, true = admin
+
 
   useEffect(() => {
-    if (!authUtils.isAdmin()) {
-      navigate('/dashboard');
-      return;
-    }
-    
-    loadData();
+    // Check authentication and admin claim
+    let bookingsUnsub = null;
+    const unsubscribe = onAuthStateChanged(auth, async (user) => {
+      if (!user) {
+        navigate('/login');
+      } else {
+        setCurrentUser(user);
+        // Fetch admin name from Firestore
+        const userData = await userService.getUserByMobile(user.phoneNumber || user.email);
+        setAdminName(userData?.name || "Admin");
+        const token = await getIdTokenResult(user, true);
+        if (token.claims.admin) {
+          setIsAdmin(true);
+          setLoading(true);
+          // Real-time bookings listener
+          bookingsUnsub = realtimeService.onAllBookingsChange((allBookings) => {
+            setBookings(allBookings);
+            setLoading(false);
+          });
+          // Load users, games, slots
+          userService.getAllUsers().then((allUsers) => {
+            setUsers(allUsers);
+            const map = {};
+            allUsers.forEach(u => { map[u.mobile] = u; });
+            setUserMap(map);
+          });
+          loadGames();
+          loadSlots();
+        } else {
+          setIsAdmin(false);
+          navigate('/dashboard');
+        }
+      }
+    });
+    return () => {
+      unsubscribe();
+      if (bookingsUnsub) bookingsUnsub();
+    };
+    // eslint-disable-next-line
   }, [navigate]);
 
-  const loadData = () => {
-    const allBookings = bookingDB.getAllBookings();
-    setBookings(allBookings);
-    loadGames();
-    loadSlots();
+  // loadData removed, now handled in useEffect with real-time updates
+
+  const handleDelete = async (bookingId) => {
+    if (!window.confirm('Are you sure you want to permanently delete this booking?')) return;
+    try {
+      await bookingService.deleteBooking(bookingId);
+      await loadData(); // Reload data
+    } catch (err) {
+      setError("Failed to delete booking");
+    }
   };
 
-  const handleDelete = (bookingId) => {
-    bookingDB.deleteBooking(bookingId);
-    loadData();
-  };
-
-  const handleStatusChange = (bookingId, newStatus) => {
-    bookingDB.updateBookingStatus(bookingId, newStatus);
-    loadData();
+  const handleStatusChange = async (bookingId, newStatus) => {
+    try {
+      await bookingService.updateBookingStatus(bookingId, newStatus);
+      await loadData(); // Reload data
+    } catch (err) {
+      setError("Failed to update booking status");
+    }
   };
 
   // Filter bookings
   const filteredBookings = bookings.filter(b =>
     (filterGame === '' || b.game === filterGame) &&
-    (filterDate === '' || b.date === filterDate)
+    (filterDate === '' || b.date === filterDate) &&
+    (
+      !search ||
+      (userMap[b.user]?.name?.toLowerCase().includes(search.toLowerCase())) ||
+      (b.user && b.user.toLowerCase().includes(search.toLowerCase()))
+    )
   );
 
   // Load games from Firestore
   const loadGames = async () => {
-    setLoading(true);
     try {
       const allGames = await gameService.getAllGames();
       setGames(allGames);
     } catch (err) {
       setError("Failed to load games");
-    } finally {
-      setLoading(false);
     }
   };
 
@@ -72,14 +127,11 @@ export default function AdminPanel() {
       setSlots([]);
       return;
     }
-    setLoading(true);
     try {
       const slotList = await slotService.getSlotsForDate(selectedDate, selectedGame);
       setSlots(slotList);
     } catch (err) {
       setError("Failed to load slots");
-    } finally {
-      setLoading(false);
     }
   };
 
@@ -141,21 +193,31 @@ export default function AdminPanel() {
     }
   };
 
+  const handleLogout = async () => {
+    await signOut(auth);
+    navigate('/login');
+  };
+
+
+  if (isAdmin === null) {
+    // Still checking admin status
+    return <Loading message="Checking admin access..." />;
+  }
+
+  if (isAdmin === true && loading) {
+    return <Loading message="Loading admin data..." />;
+  }
+
   return (
     <div className="container-fluid mt-4">
+      <div className="mb-3">
+        <h4 className="fw-bold">Welcome, {adminName}</h4>
+      </div>
       <div className="d-flex justify-content-between align-items-center mb-4">
         <h2 className="mb-0">Admin Panel</h2>
         <div>
-          <button 
-            onClick={() => {
-              localStorage.removeItem('adminSettings');
-              adminSettings.init();
-              loadData();
-              alert('Admin settings reset!');
-            }} 
-            className="btn btn-warning me-2"
-          >
-            Reset Settings
+          <button onClick={handleLogout} className="btn btn-danger me-2">
+            Logout
           </button>
           <button onClick={() => navigate('/dashboard')} className="btn btn-secondary">
             Back to Dashboard
@@ -225,55 +287,75 @@ export default function AdminPanel() {
                 onChange={e => setFilterDate(e.target.value)}
               />
             </div>
+            <div className="col-md-4 mb-2">
+              <label className="fw-semibold me-2">Search User:</label>
+              <input
+                type="text"
+                className="form-control"
+                placeholder="Search by name or phone"
+                value={search}
+                onChange={e => setSearch(e.target.value)}
+              />
+            </div>
           </div>
-          
-          <table className="table table-bordered table-striped">
-            <thead>
-              <tr>
-                <th>#</th>
-                <th>Game</th>
-                <th>Date</th>
-                <th>Time</th>
-                <th>User</th>
-                <th>Status</th>
-                <th>Action</th>
-              </tr>
-            </thead>
-            <tbody>
-              {filteredBookings.length === 0 ? (
-                <tr><td colSpan="7" className="text-center text-muted">No bookings found.</td></tr>
-              ) : (
-                filteredBookings.map((b, i) => (
-                  <tr key={b.id || i}>
-                    <td>{i + 1}</td>
-                    <td className="text-capitalize">{b.game}</td>
-                    <td>{b.date}</td>
-                    <td>{b.time}</td>
-                    <td>{b.user || 'Unknown'}</td>
-                    <td>
-                      <select
-                        className="form-select form-select-sm"
-                        value={b.status || 'Pending'}
-                        onChange={e => handleStatusChange(b.id, e.target.value)}
-                      >
-                        <option value="Pending">Pending</option>
-                        <option value="Confirmed">Confirmed</option>
-                        <option value="Cancelled">Cancelled</option>
-                      </select>
-                    </td>
-                    <td>
-                      <button 
-                        className="btn btn-danger btn-sm" 
-                        onClick={() => handleDelete(b.id)}
-                      >
-                        Delete
-                      </button>
-                    </td>
-                  </tr>
-                ))
-              )}
-            </tbody>
-          </table>
+          <div className="table-responsive">
+            <table className="table table-bordered table-striped align-middle">
+              <thead>
+                <tr>
+                  <th>#</th>
+                  <th>Game</th>
+                  <th>Date</th>
+                  <th>Time</th>
+                  <th>User Name</th>
+                  <th>User Phone</th>
+                  <th>Status</th>
+                  <th>Action</th>
+                </tr>
+              </thead>
+              <tbody>
+                {filteredBookings.length === 0 ? (
+                  <tr><td colSpan="8" className="text-center text-muted">No bookings found.</td></tr>
+                ) : (
+                  filteredBookings.map((b, i) => {
+                    // Find game name by id
+                    const gameObj = games.find(g => g.id === b.game || g.name === b.game);
+                    const gameName = gameObj ? gameObj.name : b.game;
+                    return (
+                      <tr key={b.id || i}>
+                        <td>{i + 1}</td>
+                        <td className="text-capitalize">{gameName}</td>
+                        <td>{b.date}</td>
+                        <td>{b.time}</td>
+                        <td>{userMap[b.user]?.name || 'Unknown'}</td>
+                        <td>{b.user || 'Unknown'}</td>
+                        <td>
+                          <select
+                            className="form-select form-select-sm"
+                            value={b.status || 'Pending'}
+                            onChange={e => {
+                              if(window.confirm('Change booking status?')) handleStatusChange(b.id, e.target.value);
+                            }}
+                          >
+                            <option value="Pending">Pending</option>
+                            <option value="Confirmed">Confirmed</option>
+                            <option value="Cancelled">Cancelled</option>
+                          </select>
+                        </td>
+                        <td>
+                          <button 
+                            className="btn btn-danger btn-sm" 
+                            onClick={() => { if(window.confirm('Are you sure you want to delete this booking?')) handleDelete(b.id); }}
+                          >
+                            Delete
+                          </button>
+                        </td>
+                      </tr>
+                    );
+                  })
+                )}
+              </tbody>
+            </table>
+          </div>
         </div>
       )}
 
@@ -311,8 +393,8 @@ export default function AdminPanel() {
                 onChange={e => setNewSlotTime(e.target.value)}
               >
                 <option value="">Select Time</option>
-                {slots.map(time => (
-                  <option key={time} value={time}>{time}</option>
+                {timeSlotOptions.map((slot, idx) => (
+                  <option key={idx} value={slot}>{slot}</option>
                 ))}
               </select>
             </div>
@@ -365,77 +447,68 @@ export default function AdminPanel() {
       {activeTab === 'games' && (
         <div>
           <div className="card mb-4">
-            <div className="card-header">
-              <h5 className="mb-0">Add New Game</h5>
-            </div>
+            <div className="card-header">Add New Game</div>
             <div className="card-body">
-              <div className="row">
+              <div className="row g-3 align-items-end">
                 <div className="col-md-3">
-                  <label className="fw-semibold">Game Name:</label>
+                  <label className="form-label">Name</label>
                   <input
                     type="text"
                     className="form-control"
                     value={newGame.name}
-                    onChange={e => setNewGame({...newGame, name: e.target.value})}
-                    placeholder="Enter game name"
+                    onChange={e => setNewGame({ ...newGame, name: e.target.value })}
                   />
                 </div>
-                <div className="col-md-3">
-                  <label className="fw-semibold">Price:</label>
+                <div className="col-md-2">
+                  <label className="form-label">Price</label>
                   <input
                     type="number"
                     className="form-control"
                     value={newGame.price}
-                    onChange={e => setNewGame({...newGame, price: parseInt(e.target.value) || 0})}
-                    placeholder="Price"
+                    onChange={e => setNewGame({ ...newGame, price: Number(e.target.value) })}
                   />
                 </div>
-                <div className="col-md-2">
-                  <label className="fw-semibold">Category:</label>
-                  <select
-                    className="form-select"
+                <div className="col-md-3">
+                  <label className="form-label">Category</label>
+                  <input
+                    type="text"
+                    className="form-control"
                     value={newGame.category}
-                    onChange={e => setNewGame({...newGame, category: e.target.value})}
-                  >
-                    <option value="Indoor">Indoor</option>
-                    <option value="Outdoor">Outdoor</option>
-                    <option value="Virtual">Virtual</option>
-                  </select>
+                    onChange={e => setNewGame({ ...newGame, category: e.target.value })}
+                  />
                 </div>
-                <div className="col-md-2">
-                  <label className="fw-semibold">&nbsp;</label>
-                  <button 
-                    className="btn btn-success d-block w-100"
-                    onClick={handleAddGame}
-                    disabled={!newGame.name}
-                  >
-                    Add Game
+                <div className="col-md-3">
+                  <label className="form-label">Image URL</label>
+                  <input
+                    type="text"
+                    className="form-control"
+                    value={newGame.image || ''}
+                    onChange={e => setNewGame({ ...newGame, image: e.target.value })}
+                  />
+                </div>
+                <div className="col-md-1">
+                  <button className="btn btn-success w-100" onClick={handleAddGame} disabled={!newGame.name}>
+                    Add
                   </button>
                 </div>
               </div>
             </div>
           </div>
-
           <div className="row">
             {games.map(game => (
-              <div key={game.id} className="col-md-4 mb-3">
-                <div className="card">
+              <div className="col-md-4 mb-3" key={game.id}>
+                <div className="card h-100">
                   {game.image && (
-                    <img src={game.image} alt={game.name} className="card-img-top" style={{height: '200px', objectFit: 'cover'}} />
+                    <img src={game.image} alt={game.name} className="card-img-top" style={{ height: '180px', objectFit: 'cover' }} />
                   )}
                   <div className="card-body">
                     <h5 className="card-title">{game.name}</h5>
-                    <p className="card-text">
-                      <strong>Price:</strong> ₹{game.price}<br/>
-                      <strong>Category:</strong> {game.category}<br/>
-                      <strong>Status:</strong> {game.isActive ? 'Active' : 'Inactive'}
-                    </p>
-                    <button 
-                      className="btn btn-danger btn-sm"
-                      onClick={() => handleDeleteGame(game.id)}
-                    >
-                      Delete Game
-                    </button>
+                    <p className="card-text mb-1">Price: ₹{game.price}</p>
+                    <p className="card-text mb-1">Category: {game.category}</p>
+                    <p className="card-text mb-1">Active: {game.isActive ? 'Yes' : 'No'}</p>
+                  </div>
+                  <div className="card-footer d-flex justify-content-between">
+                    <button className="btn btn-danger btn-sm" onClick={() => handleDeleteGame(game.id)}>Delete</button>
                   </div>
                 </div>
               </div>
@@ -447,6 +520,35 @@ export default function AdminPanel() {
       {/* Analytics Tab */}
       {activeTab === 'analytics' && (
         <div>
+
+          {/* Daily Bookings Line Chart - Enhanced UI */}
+          <div className="row mb-4 justify-content-center">
+            <div className="col-lg-8 col-md-10 col-12">
+              <div className="card shadow-lg border-0 rounded-4 overflow-hidden">
+                <div className="card-header bg-gradient bg-primary text-white d-flex justify-content-between align-items-center py-3 px-4 border-0">
+                  <h5 className="mb-0 fw-bold">📈 Daily Bookings (Last 7 Days)</h5>
+                  <span className="badge bg-light text-primary border border-primary fs-6">{bookings.length} total</span>
+                </div>
+                <div className="card-body bg-light p-4">
+                  <ResponsiveContainer width="100%" height={340}>
+                    <LineChart data={getDailyBookingData(bookings)} margin={{ top: 30, right: 30, left: 0, bottom: 0 }}>
+                      <CartesianGrid strokeDasharray="6 6" stroke="#d1e3fa" />
+                      <XAxis dataKey="date" tick={{ fontSize: 15, fill: '#1a237e' }} axisLine={false} tickLine={false} />
+                      <YAxis allowDecimals={false} tick={{ fontSize: 15, fill: '#1a237e' }} axisLine={false} tickLine={false} />
+                      <Tooltip contentStyle={{ borderRadius: 10, border: '1.5px solid #1976d2', background: '#f4faff', fontSize: 15 }} labelStyle={{ fontWeight: 700, color: '#1976d2' }} />
+                      <Line type="monotone" dataKey="count" stroke="#1976d2" strokeWidth={4} dot={{ r: 8, fill: '#fff', stroke: '#1976d2', strokeWidth: 4 }} activeDot={{ r: 12, fill: '#1976d2', stroke: '#fff', strokeWidth: 4 }} />
+                    </LineChart>
+                  </ResponsiveContainer>
+                  <div className="text-end mt-3">
+                    <span className="badge bg-primary fs-6">Today: {getDailyBookingData(bookings).slice(-1)[0]?.count || 0}</span>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+
+
+
           <div className="row">
             <div className="col-md-3 mb-3">
               <div className="card text-center">
@@ -481,8 +583,50 @@ export default function AdminPanel() {
               </div>
             </div>
           </div>
+          <div className="row">
+            <div className="col-md-3 mb-3">
+              <div className="card text-center">
+                <div className="card-body">
+                  <h3 className="text-info">{users.length}</h3>
+                  <p className="mb-0">Total Users</p>
+                </div>
+              </div>
+            </div>
+            <div className="col-md-3 mb-3">
+              <div className="card text-center">
+                <div className="card-body">
+                  <h3 className="text-info">{games.length}</h3>
+                  <p className="mb-0">Total Games</p>
+                </div>
+              </div>
+            </div>
+          </div>
         </div>
       )}
     </div>
   );
-} 
+}
+
+// Helper function to aggregate bookings per day for the last 7 days
+function getDailyBookingData(bookings) {
+  const today = new Date();
+  const days = [];
+  for (let i = 6; i >= 0; i--) {
+    const d = new Date(today);
+    d.setDate(today.getDate() - i);
+    days.push({
+      date: d.toLocaleDateString('en-IN', { day: '2-digit', month: '2-digit' }),
+      count: 0
+    });
+  }
+  bookings.forEach(function(b) {
+    if (!b.date) return;
+    // Assume b.date is in 'YYYY-MM-DD' or similar format
+    var parts = b.date.split('-');
+    if (parts.length < 3) return;
+    var formatted = parts[2] + '-' + parts[1];
+    var found = days.find(function(d) { return d.date === formatted; });
+    if (found) found.count++;
+  });
+  return days;
+}

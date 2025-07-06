@@ -2,6 +2,9 @@ import React, { StrictMode } from 'react'
 import { createRoot } from 'react-dom/client'
 import { HashRouter, Routes, Route } from 'react-router-dom'
 
+// Initialize Firebase first
+import './firebase/config'
+
 import Home from './pages/Home.jsx'
 import AdminPanel from './pages/AdminPanel.jsx'
 import UserPanel from './pages/UserPanel.jsx'
@@ -10,6 +13,7 @@ import Login from './pages/Login.jsx'
 import Dashboard from './pages/Dashboard.jsx'
 import BookGame from './pages/BookGame.jsx'
 import DeploymentTest from './pages/DeploymentTest.jsx'
+import ProtectedAdminRoute from './components/ProtectedAdminRoute';
 import 'bootstrap/dist/css/bootstrap.min.css'
 
 // Error boundary component
@@ -50,19 +54,7 @@ class ErrorBoundary extends React.Component {
 }
 
 // Initialize databases
-try {
-  // Import and initialize databases
-  import('./data/databaseUtils.js').then(({ authUtils }) => {
-    console.log('Database utils loaded successfully');
-  });
-  
-  import('./data/adminSettings.js').then((adminSettings) => {
-    console.log('Admin settings loaded successfully');
-    adminSettings.default.init();
-  });
-} catch (error) {
-  console.error('Error initializing databases:', error);
-}
+// (No more adminSettings.js dynamic import)
 
 createRoot(document.getElementById('root')).render(
   <StrictMode>
@@ -72,7 +64,7 @@ createRoot(document.getElementById('root')).render(
           <Route path="/main" element={<MainPage />} />
           <Route path="/" element={<Home />} />
           <Route path="/book" element={<BookGame />} />
-          <Route path="/admin" element={<AdminPanel />} />
+          <Route path="/admin" element={<ProtectedAdminRoute><AdminPanel /></ProtectedAdminRoute>} />
           <Route path="/user" element={<UserPanel />} />
           <Route path="/test" element={<DeploymentTest />} />
           <Route path="/login" element={<Login />} />

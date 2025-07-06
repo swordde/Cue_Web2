@@ -1,6 +1,4 @@
 import { useState, useEffect } from "react";
-import { games } from "../data/mockGames";
-import { mockSlots } from "../data/mockSlots";
 
 export default function EditBookingModal({ booking, bookings = [], editingBookingIndex, onClose, onSave }) {
   const [game, setGame] = useState(booking.game);

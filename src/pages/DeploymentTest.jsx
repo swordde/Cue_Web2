@@ -1,46 +1,19 @@
-import { useState, useEffect } from 'react';
+import { useState } from 'react';
 
 export default function DeploymentTest() {
   const [status, setStatus] = useState('Loading...');
-  const [adminSettingsStatus, setAdminSettingsStatus] = useState('Checking...');
   const [databaseStatus, setDatabaseStatus] = useState('Checking...');
 
-  useEffect(() => {
-    // Test basic functionality
-    setStatus('Testing basic functionality...');
-    
-    // Test localStorage
-    try {
-      localStorage.setItem('test', 'test');
-      localStorage.removeItem('test');
-      setStatus('localStorage working');
-    } catch (error) {
-      setStatus(`localStorage error: ${error.message}`);
-    }
+  // Test localStorage
+  try {
+    localStorage.setItem('test', 'test');
+    localStorage.removeItem('test');
+    setStatus('localStorage working');
+  } catch (error) {
+    setStatus(`localStorage error: ${error.message}`);
+  }
 
-    // Test admin settings
-    try {
-      import('../data/adminSettings.js').then((adminSettings) => {
-        const games = adminSettings.default.getGames();
-        setAdminSettingsStatus(`Admin settings working - ${games.length} games loaded`);
-      }).catch(error => {
-        setAdminSettingsStatus(`Admin settings error: ${error.message}`);
-      });
-    } catch (error) {
-      setAdminSettingsStatus(`Admin settings import error: ${error.message}`);
-    }
-
-    // Test database utils
-    try {
-      import('../data/databaseUtils.js').then(({ authUtils }) => {
-        setDatabaseStatus('Database utils working');
-      }).catch(error => {
-        setDatabaseStatus(`Database utils error: ${error.message}`);
-      });
-    } catch (error) {
-      setDatabaseStatus(`Database utils import error: ${error.message}`);
-    }
-  }, []);
+  // You can add more deployment tests here if needed
 
   return (
     <div className="container mt-5">
@@ -61,21 +34,12 @@ export default function DeploymentTest() {
             <div className="col-md-4">
               <div className="card">
                 <div className="card-body">
-                  <h5>Admin Settings</h5>
-                  <p className="text-primary">{adminSettingsStatus}</p>
-                </div>
-              </div>
-            </div>
-            <div className="col-md-4">
-              <div className="card">
-                <div className="card-body">
                   <h5>Database Utils</h5>
                   <p className="text-primary">{databaseStatus}</p>
                 </div>
               </div>
             </div>
           </div>
-          
           <div className="mt-4">
             <h5>Environment Info:</h5>
             <ul>

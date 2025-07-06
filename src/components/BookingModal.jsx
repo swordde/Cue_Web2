@@ -32,7 +32,7 @@ export default function BookingModal({ time, date, game, onClose, onConfirm }) {
           </div>
           <div className="modal-footer">
             <button onClick={onClose} className="btn btn-secondary">Cancel</button>
-            <button onClick={onConfirm} className="btn btn-primary">Submit Request</button>
+            <button onClick={() => onConfirm()} className="btn btn-primary">Submit Request</button>
           </div>
         </div>
       </div>

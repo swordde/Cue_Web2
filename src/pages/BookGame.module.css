@@ -1,0 +1,1556 @@
+/* BookGame Page Styles */
+
+.bookGamePage {
+  min-height: 100vh;
+  background: linear-gradient(135deg, #0f0f0f 0%, #1a1a1a 50%, #0f0f0f 100%);
+  font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+  color: white;
+  position: relative;
+  overflow-x: hidden;
+  padding: clamp(8px, 2vw, 20px);
+}
+
+/* Mobile-first responsive breakpoints */
+@media (max-width: 768px) {
+  .bookGamePage {
+    padding: 8px;
+  }
+}
+
+/* Top Navigation Bar for Mobile */
+.topNavBar {
+  position: sticky;
+  top: 0;
+  z-index: 1000;
+  background: rgba(0, 0, 0, 0.95);
+  backdrop-filter: blur(10px);
+  padding: 12px 16px;
+  border-radius: 0 0 16px 16px;
+  margin-bottom: 16px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: 8px;
+  border: 1px solid rgba(255, 193, 7, 0.2);
+}
+
+/* Header Section */
+.header {
+  max-width: 1200px;
+  margin: 0 auto 40px;
+  display: flex;
+  align-items: center;
+  gap: 30px;
+  animation: slideInFromTop 0.8s ease-out;
+}
+
+@media (max-width: 768px) {
+  .header {
+    flex-direction: column;
+    gap: 12px;
+    margin-bottom: 20px;
+  }
+}
+
+.backButton {
+  padding: 12px 20px;
+  background: rgba(255, 193, 7, 0.1);
+  border: 2px solid rgba(255, 193, 7, 0.3);
+  color: #ffc107;
+  border-radius: 25px;
+  font-size: 1rem;
+  cursor: pointer;
+  transition: all 0.3s ease;
+  backdrop-filter: blur(10px);
+  text-decoration: none;
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+}
+
+@media (max-width: 768px) {
+  .backButton {
+    padding: 8px 16px;
+    font-size: 0.9rem;
+    min-width: auto;
+    white-space: nowrap;
+  }
+}
+
+.backButton:hover {
+  background: rgba(255, 193, 7, 0.2);
+  border-color: #ffc107;
+  transform: translateX(-5px);
+  color: #ffc107;
+  text-decoration: none;
+}
+
+.headerContent {
+  flex: 1;
+}
+
+.title {
+  font-size: 2.5rem;
+  margin-bottom: 10px;
+  background: linear-gradient(135deg, #ffc107 0%, #ffbf00 100%);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+}
+
+@media (max-width: 768px) {
+  .title {
+    font-size: clamp(1.2rem, 4vw, 1.8rem);
+    margin: 0;
+    line-height: 1.2;
+  }
+}
+
+.subtitle {
+  font-size: 1.1rem;
+  color: rgba(255, 255, 255, 0.7);
+  margin: 0;
+}
+
+@media (max-width: 768px) {
+  .subtitle {
+    font-size: clamp(0.8rem, 2.5vw, 1rem);
+    text-align: center;
+  }
+}
+
+/* Games Container */
+.gamesContainer {
+  max-width: 1200px;
+  margin: 0 auto 40px;
+}
+
+@media (max-width: 768px) {
+  .gamesContainer {
+    margin: 0 auto 20px;
+    padding: 0 8px;
+  }
+}
+
+.gamesGrid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+  gap: 25px;
+  padding: 20px 0;
+}
+
+@media (max-width: 768px) {
+  .gamesGrid {
+    grid-template-columns: repeat(auto-fit, minmax(min(280px, 100%), 1fr));
+    gap: clamp(12px, 3vw, 20px);
+    padding: 0;
+  }
+}
+
+@media (max-width: 480px) {
+  .gamesGrid {
+    grid-template-columns: 1fr;
+    gap: 16px;
+  }
+}
+
+/* Game Cards */
+.gameCard {
+  position: relative;
+  background: rgba(255, 255, 255, 0.03);
+  border: 2px solid rgba(255, 193, 7, 0.2);
+  border-radius: 20px;
+  padding: 25px;
+  cursor: pointer;
+  transition: all 0.4s cubic-bezier(0.4, 0, 0.2, 1);
+  backdrop-filter: blur(15px);
+  overflow: hidden;
+  animation: fadeInUp 0.8s ease-out calc(0.2s + var(--card-delay, 0s)) both;
+}
+
+@media (max-width: 768px) {
+  .gameCard {
+    padding: clamp(16px, 4vw, 25px);
+    border-radius: 16px;
+  }
+}
+
+.gameCard.selected {
+  border-color: #ffc107;
+  box-shadow: 0 0 20px rgba(255, 193, 7, 0.3);
+  background: rgba(255, 193, 7, 0.1);
+}
+
+.gameCard:hover {
+  transform: translateY(-5px) scale(1.02);
+  border-color: #ffc107;
+  box-shadow: 
+    0 15px 30px rgba(0, 0, 0, 0.3),
+    0 0 25px rgba(255, 193, 7, 0.2);
+}
+
+@media (max-width: 768px) {
+  .gameCard:hover {
+    transform: translateY(-2px) scale(1.01);
+  }
+}
+
+.cardGlow {
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: radial-gradient(circle at center, rgba(255, 193, 7, 0.05) 0%, transparent 70%);
+  opacity: 0;
+  transition: opacity 0.4s ease;
+}
+
+.gameCard:hover .cardGlow,
+.gameCard.selected .cardGlow {
+  opacity: 1;
+}
+
+.cardContent {
+  position: relative;
+  z-index: 2;
+  text-align: center;
+}
+
+.gameImage {
+  width: 100%;
+  height: 140px;
+  object-fit: cover;
+  border-radius: 12px;
+  margin-bottom: 15px;
+  transition: transform 0.3s ease;
+}
+
+.gameCard:hover .gameImage {
+  transform: scale(1.05);
+}
+
+.gameName {
+  font-size: 1.3rem;
+  color: #ffc107;
+  margin-bottom: 8px;
+  font-weight: bold;
+}
+
+.gameCategory {
+  display: inline-block;
+  background: rgba(255, 193, 7, 0.2);
+  color: #ffc107;
+  padding: 4px 12px;
+  border-radius: 15px;
+  font-size: 0.8rem;
+  margin-bottom: 8px;
+  border: 1px solid rgba(255, 193, 7, 0.3);
+}
+
+.gamePrice {
+  font-size: 1.1rem;
+  color: #4CAF50;
+  font-weight: bold;
+  margin-bottom: 10px;
+}
+
+.gameDescription {
+  font-size: 0.85rem;
+  color: rgba(255, 255, 255, 0.7);
+  margin-bottom: 15px;
+  line-height: 1.4;
+}
+
+.gameFeatures {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  margin-bottom: 15px;
+  text-align: left;
+}
+
+.feature {
+  font-size: 0.8rem;
+  color: rgba(255, 255, 255, 0.6);
+}
+
+.bookButton {
+  width: 100%;
+  padding: 12px 20px;
+  background: linear-gradient(135deg, #ffc107 0%, #ffbf00 100%);
+  color: black;
+  border: none;
+  border-radius: 25px;
+  font-size: 1rem;
+  font-weight: bold;
+  cursor: pointer;
+  transition: all 0.3s ease;
+  box-shadow: 0 4px 15px rgba(255, 193, 7, 0.3);
+}
+
+.bookButton:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 6px 20px rgba(255, 193, 7, 0.4);
+  background: linear-gradient(135deg, #ffbf00 0%, #ffa000 100%);
+}
+
+.selectedBadge {
+  position: absolute;
+  bottom: 0;
+  left: 0;
+  right: 0;
+  background: linear-gradient(135deg, #ffc107 0%, #ffbf00 100%);
+  color: black;
+  text-align: center;
+  padding: 8px;
+  font-weight: bold;
+  font-size: 0.9rem;
+}
+
+/* Date Picker Section */
+.dateSection {
+  max-width: 1200px;
+  margin: 0 auto 40px;
+  display: flex;
+  justify-content: center;
+  animation: fadeInUp 1s ease-out 0.4s both;
+}
+
+.datePickerContainer {
+  background: rgba(255, 255, 255, 0.05);
+  border: 2px solid rgba(255, 193, 7, 0.3);
+  border-radius: 15px;
+  padding: 20px;
+  backdrop-filter: blur(15px);
+  display: flex;
+  align-items: center;
+  gap: 15px;
+}
+
+.dateLabel {
+  color: #ffc107;
+  font-weight: 600;
+  font-size: 1.1rem;
+}
+
+.dateInput {
+  background: rgba(255, 255, 255, 0.1);
+  border: 2px solid rgba(255, 193, 7, 0.3);
+  border-radius: 10px;
+  padding: 12px 15px;
+  color: white;
+  font-size: 1rem;
+  transition: all 0.3s ease;
+  min-width: 180px;
+}
+
+.dateInput:focus {
+  outline: none;
+  border-color: #ffc107;
+  box-shadow: 0 0 15px rgba(255, 193, 7, 0.3);
+  background: rgba(255, 255, 255, 0.15);
+}
+
+.dateInput::-webkit-calendar-picker-indicator {
+  filter: invert(1);
+  cursor: pointer;
+}
+
+/* Slot Grid Section */
+.slotSection {
+  max-width: 1200px;
+  margin: 0 auto;
+  animation: fadeInUp 1.2s ease-out 0.6s both;
+}
+
+.noGameSelected {
+  text-align: center;
+  padding: 60px 20px;
+  background: rgba(255, 255, 255, 0.03);
+  border: 2px dashed rgba(255, 193, 7, 0.3);
+  border-radius: 20px;
+  backdrop-filter: blur(15px);
+}
+
+.noGameIcon {
+  font-size: 4rem;
+  margin-bottom: 20px;
+  opacity: 0.5;
+}
+
+.noGameTitle {
+  color: rgba(255, 255, 255, 0.7);
+  font-size: 1.5rem;
+  margin-bottom: 10px;
+}
+
+.noGameText {
+  color: rgba(255, 255, 255, 0.5);
+  font-size: 1rem;
+}
+
+/* Debug Info */
+.debugInfo {
+  margin-top: 30px;
+  padding: 20px;
+  background: rgba(255, 255, 255, 0.05);
+  border: 1px solid rgba(255, 193, 7, 0.2);
+  border-radius: 15px;
+  backdrop-filter: blur(10px);
+}
+
+.debugText {
+  color: rgba(255, 255, 255, 0.6);
+  font-size: 0.85rem;
+  line-height: 1.4;
+}
+
+/* Background Effects */
+.backgroundEffects {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  pointer-events: none;
+  z-index: -1;
+}
+
+.floatingOrb {
+  position: absolute;
+  border-radius: 50%;
+  filter: blur(100px);
+  animation: orbFloat 20s ease-in-out infinite;
+}
+
+.floatingOrb:nth-child(1) {
+  width: 300px;
+  height: 300px;
+  background: radial-gradient(circle, rgba(255, 193, 7, 0.05) 0%, transparent 70%);
+  top: 20%;
+  left: 10%;
+  animation-delay: 0s;
+}
+
+.floatingOrb:nth-child(2) {
+  width: 200px;
+  height: 200px;
+  background: radial-gradient(circle, rgba(255, 193, 7, 0.03) 0%, transparent 70%);
+  top: 60%;
+  right: 20%;
+  animation-delay: 7s;
+}
+
+.floatingOrb:nth-child(3) {
+  width: 400px;
+  height: 400px;
+  background: radial-gradient(circle, rgba(255, 193, 7, 0.02) 0%, transparent 70%);
+  bottom: 10%;
+  left: 40%;
+  animation-delay: 14s;
+}
+
+/* Alert Styles */
+.alert {
+  max-width: 1200px;
+  margin: 0 auto 30px;
+  padding: 15px 20px;
+  border-radius: 15px;
+  backdrop-filter: blur(15px);
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  animation: slideInFromTop 0.5s ease-out;
+}
+
+.alertDanger {
+  background: rgba(220, 53, 69, 0.1);
+  border: 2px solid rgba(220, 53, 69, 0.3);
+  color: #ff6b7a;
+}
+
+.alertContent h4 {
+  margin: 0 0 8px 0;
+  font-size: 1.2rem;
+}
+
+.alertContent p {
+  margin: 0 0 15px 0;
+  opacity: 0.8;
+}
+
+.retryButton {
+  background: linear-gradient(135deg, #ffc107 0%, #ffbf00 100%);
+  color: black;
+  border: none;
+  padding: 10px 20px;
+  border-radius: 8px;
+  font-weight: bold;
+  cursor: pointer;
+  transition: all 0.3s ease;
+}
+
+.retryButton:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 5px 15px rgba(255, 193, 7, 0.3);
+}
+
+.closeButton {
+  background: none;
+  border: none;
+  color: inherit;
+  font-size: 1.5rem;
+  cursor: pointer;
+  padding: 5px;
+  opacity: 0.7;
+  transition: opacity 0.3s ease;
+}
+
+.closeButton:hover {
+  opacity: 1;
+}
+
+/* Ensure content appears above shimmer effects - only for game cards */
+
+/* Animations */
+@keyframes slideInFromTop {
+  from {
+    opacity: 0;
+    transform: translateY(-50px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@keyframes fadeInUp {
+  from {
+    opacity: 0;
+    transform: translateY(40px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@keyframes orbFloat {
+  0%, 100% { transform: translate(0, 0) scale(1); }
+  33% { transform: translate(50px, -30px) scale(1.1); }
+  66% { transform: translate(-30px, 40px) scale(0.9); }
+}
+
+@keyframes slideInFromRight {
+  from {
+    opacity: 0;
+    transform: translateY(-50%) translateX(100px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(-50%) translateX(0);
+  }
+}
+
+/* Shimmer animation for glossy effect */
+@keyframes shimmer {
+  0% {
+    transform: translateX(-200%) translateY(-200%) rotate(45deg);
+  }
+  50% {
+    transform: translateX(0%) translateY(0%) rotate(45deg);
+  }
+  100% {
+    transform: translateX(200%) translateY(200%) rotate(45deg);
+  }
+}
+
+/* Responsive Design */
+@media (max-width: 768px) {
+  .header {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 15px;
+  }
+  
+  .gameInfo {
+    flex-direction: column;
+    text-align: center;
+    gap: 10px;
+  }
+  
+  .gameIconImage {
+    width: 60px;
+    height: 60px;
+  }
+  
+  .gameIconLarge {
+    width: 50px;
+    height: 50px;
+    margin-right: 10px;
+  }
+  
+  .gameIconLarge:not(img) {
+    width: auto;
+    height: auto;
+    font-size: 2.5rem;
+  }
+  
+  .gameName {
+    font-size: 2rem;
+  }
+  
+  .bookingContainer {
+    grid-template-columns: 1fr;
+    gap: 25px;
+  }
+  
+  .slotsGrid {
+    grid-template-columns: 1fr;
+  }
+  
+  .bookingSummary {
+    position: relative;
+    top: auto;
+    right: auto;
+    bottom: auto;
+    left: auto;
+    transform: none;
+    margin-top: 30px;
+    width: 100%;
+    max-width: none;
+    animation: fadeInUp 0.5s ease-out;
+  }
+  
+  .bookingSummary.minimized {
+    position: fixed;
+    bottom: 20px;
+    right: 20px;
+    top: auto;
+    transform: none;
+    width: 60px;
+    max-width: 60px;
+    margin-top: 0;
+  }
+  
+  .stepIndicator {
+    gap: 30px;
+    padding: 15px;
+  }
+  
+  .stepNumber {
+    width: 45px;
+    height: 45px;
+    font-size: 1.1rem;
+  }
+  
+  .stepLabel {
+    font-size: 0.85rem;
+    max-width: 80px;
+  }
+  
+  .title {
+    font-size: 2rem;
+  }
+  
+  .datePickerContainer {
+    flex-direction: column;
+    text-align: center;
+  }
+  
+  .gamesGrid {
+    gap: 15px;
+  }
+  
+  .gameCard {
+    min-width: 200px;
+    max-width: 220px;
+  }
+  
+  .popupOverlay {
+    padding: 15px;
+  }
+  
+  .bookingPopup {
+    border-radius: 15px;
+  }
+  
+  .popupHeader {
+    padding: 15px 20px 12px;
+  }
+  
+  .popupTitle {
+    font-size: 1.2rem;
+  }
+  
+  .popupContent {
+    padding: 15px 20px;
+  }
+  
+  .gamePreview {
+    padding: 12px;
+  }
+  
+  .gameIconLarge {
+    font-size: 2.5rem;
+    margin-right: 12px;
+  }
+  
+  .timeSlotsList {
+    grid-template-columns: 1fr;
+  }
+  
+  .popupActions {
+    flex-direction: column;
+    padding: 15px 20px;
+  }
+  
+  .cancelButton, .finalConfirmButton {
+    padding: 14px 20px;
+  }
+}
+
+@media (max-width: 480px) {
+  .bookGamePage {
+    padding: 15px;
+  }
+  
+  .calendarSection, .slotsSection {
+    padding: 20px;
+  }
+  
+  .sectionTitle {
+    font-size: 1.5rem;
+  }
+  
+  .calendarDay {
+    font-size: 0.8rem;
+  }
+  
+  .timeSlot {
+    padding: 12px;
+  }
+  
+  .title {
+    font-size: 1.8rem;
+  }
+  
+  .gameCard {
+    padding: 15px;
+    min-width: 180px;
+    max-width: 200px;
+  }
+  
+  .gameName {
+    font-size: 1.1rem;
+  }
+}
+
+/* Game Info for Booking View */
+.gameInfo {
+  display: flex;
+  align-items: center;
+  gap: 20px;
+  flex: 1;
+}
+
+.gameIcon {
+  font-size: 4rem;
+  filter: drop-shadow(0 0 10px rgba(255, 193, 7, 0.3));
+}
+
+.gameIconImage {
+  width: 80px;
+  height: 80px;
+  border-radius: 15px;
+  object-fit: cover;
+  border: 3px solid rgba(255, 193, 7, 0.3);
+  filter: drop-shadow(0 0 15px rgba(255, 193, 7, 0.4));
+  transition: all 0.3s ease;
+}
+
+.gameIconImage:hover {
+  border-color: #ffc107;
+  filter: drop-shadow(0 0 20px rgba(255, 193, 7, 0.6));
+  transform: scale(1.05);
+}
+
+.gameDetails {
+  flex: 1;
+}
+
+.gameName {
+  font-size: 2.5rem;
+  margin-bottom: 5px;
+  background: linear-gradient(135deg, #ffc107 0%, #ffbf00 100%);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+}
+
+.gamePrice {
+  font-size: 1.3rem;
+  color: #ffc107;
+  font-weight: bold;
+  margin: 0;
+}
+
+/* Step Indicator */
+.stepIndicator {
+  max-width: 600px;
+  margin: 0 auto 40px;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  gap: 60px;
+  animation: fadeInUp 0.8s ease-out 0.1s both;
+  padding: 20px;
+}
+
+.step {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 12px;
+  opacity: 0.4;
+  transition: all 0.3s ease;
+  position: relative;
+}
+
+.step.active {
+  opacity: 1;
+}
+
+.stepNumber {
+  width: 50px;
+  height: 50px;
+  border-radius: 50%;
+  background: rgba(255, 255, 255, 0.1);
+  border: 2px solid rgba(255, 255, 255, 0.3);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: rgba(255, 255, 255, 0.6);
+  font-weight: bold;
+  font-size: 1.2rem;
+  transition: all 0.3s ease;
+}
+
+.step.active .stepNumber {
+  background: #ffc107;
+  border-color: #ffc107;
+  color: #000;
+  box-shadow: 0 0 20px rgba(255, 193, 7, 0.4);
+}
+
+.stepLabel {
+  font-size: 0.95rem;
+  color: rgba(255, 255, 255, 0.6);
+  transition: color 0.3s ease;
+  font-weight: 500;
+  text-align: center;
+  max-width: 100px;
+}
+
+.step.active .stepLabel {
+  color: #ffc107;
+  font-weight: 600;
+}
+
+/* Booking Container */
+.bookingContainer {
+  max-width: 1200px;
+  margin: 0 auto;
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 40px;
+  animation: fadeInUp 0.8s ease-out 0.2s both;
+}
+
+.sectionTitle {
+  font-size: 1.8rem;
+  color: #ffc107;
+  margin-bottom: 20px;
+  text-align: center;
+}
+
+/* Calendar Section */
+.calendarSection {
+  background: rgba(255, 255, 255, 0.03);
+  border: 2px solid rgba(255, 193, 7, 0.2);
+  border-radius: 20px;
+  padding: 25px;
+  backdrop-filter: blur(15px);
+}
+
+.calendarHeader {
+  text-align: center;
+  margin-bottom: 20px;
+}
+
+.monthYear {
+  font-size: 1.4rem;
+  color: rgba(255, 255, 255, 0.9);
+  margin: 0;
+}
+
+.calendar {
+  width: 100%;
+}
+
+.weekDays {
+  display: grid;
+  grid-template-columns: repeat(7, 1fr);
+  gap: 5px;
+  margin-bottom: 10px;
+}
+
+.weekDay {
+  text-align: center;
+  padding: 10px;
+  font-size: 0.9rem;
+  color: rgba(255, 255, 255, 0.6);
+  font-weight: bold;
+}
+
+.calendarDays {
+  display: grid;
+  grid-template-columns: repeat(7, 1fr);
+  gap: 5px;
+}
+
+.calendarDay {
+  aspect-ratio: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 10px;
+  font-size: 0.9rem;
+  cursor: pointer;
+  transition: all 0.3s ease;
+  background: rgba(255, 255, 255, 0.02);
+}
+
+.calendarDay.available {
+  background: rgba(255, 255, 255, 0.05);
+  border: 1px solid rgba(255, 193, 7, 0.3);
+  color: rgba(255, 255, 255, 0.8);
+}
+
+.calendarDay.available:hover {
+  background: rgba(255, 193, 7, 0.1);
+  border-color: #ffc107;
+  transform: scale(1.05);
+}
+
+.calendarDay.selected {
+  background: #ffc107;
+  color: black;
+  font-weight: bold;
+  border-color: #ffc107;
+}
+
+.calendarDay.past {
+  color: rgba(255, 255, 255, 0.3);
+  cursor: not-allowed;
+}
+
+/* Time Slots Section */
+.slotsSection {
+  background: rgba(255, 255, 255, 0.03);
+  border: 2px solid rgba(255, 193, 7, 0.2);
+  border-radius: 20px;
+  padding: 25px;
+  backdrop-filter: blur(15px);
+}
+
+.slotsGrid {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 10px;
+  max-height: 400px;
+  overflow-y: auto;
+  padding: 10px;
+  border-radius: 10px;
+  background: rgba(0, 0, 0, 0.2);
+}
+
+.multiSelectHint {
+  text-align: center;
+  color: rgba(255, 255, 255, 0.6);
+  font-size: 0.9rem;
+  margin-bottom: 20px;
+  padding: 10px;
+  background: rgba(255, 193, 7, 0.1);
+  border-radius: 10px;
+  border: 1px solid rgba(255, 193, 7, 0.2);
+}
+
+.timeSlot {
+  padding: 10px;
+  border-radius: 8px;
+  cursor: pointer;
+  transition: all 0.3s ease;
+  text-align: center;
+  border: 2px solid transparent;
+  min-height: 50px;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+}
+
+.timeSlot.available {
+  background: rgba(76, 175, 80, 0.1);
+  border-color: rgba(76, 175, 80, 0.3);
+  color: rgba(255, 255, 255, 0.9);
+}
+
+.timeSlot.available:hover {
+  background: rgba(76, 175, 80, 0.2);
+  border-color: #4CAF50;
+  transform: translateY(-2px);
+}
+
+.timeSlot.booked {
+  background: rgba(244, 67, 54, 0.1);
+  border-color: rgba(244, 67, 54, 0.3);
+  color: rgba(255, 255, 255, 0.5);
+  cursor: not-allowed;
+}
+
+.timeSlot.offlineBooked {
+  background: rgba(255, 152, 0, 0.1);
+  border-color: rgba(255, 152, 0, 0.3);
+  color: rgba(255, 255, 255, 0.6);
+  cursor: not-allowed;
+  position: relative;
+}
+
+.timeSlot.offlineBooked::before {
+  content: "🏢";
+  position: absolute;
+  top: 4px;
+  right: 4px;
+  font-size: 0.7rem;
+  opacity: 0.7;
+}
+
+.timeSlot.selected {
+  background: rgba(255, 193, 7, 0.3);
+  border-color: #ffc107;
+  color: #ffc107;
+  transform: scale(1.05);
+  box-shadow: 0 4px 15px rgba(255, 193, 7, 0.3);
+}
+
+.slotTime {
+  display: block;
+  font-size: 0.9rem;
+  font-weight: bold;
+  margin-bottom: 2px;
+}
+
+.slotStatus {
+  font-size: 0.7rem;
+  opacity: 0.8;
+}
+
+/* Instructions Section */
+.instructionsSection {
+  background: rgba(255, 255, 255, 0.03);
+  border: 2px solid rgba(255, 193, 7, 0.2);
+  border-radius: 20px;
+  padding: 25px;
+  backdrop-filter: blur(15px);
+  text-align: center;
+}
+
+.instructionsContent {
+  max-width: 400px;
+  margin: 0 auto;
+}
+
+.instructionsTitle {
+  font-size: 2rem;
+  color: #ffc107;
+  margin-bottom: 15px;
+}
+
+.instructionsText {
+  color: rgba(255, 255, 255, 0.8);
+  margin-bottom: 25px;
+  font-size: 1.1rem;
+}
+
+.instructionsFeatures {
+  display: flex;
+  flex-direction: column;
+  gap: 15px;
+}
+
+.instructionItem {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  font-size: 1rem;
+  color: rgba(255, 255, 255, 0.9);
+}
+
+/* Booking Summary */
+.bookingSummary {
+  position: fixed;
+  top: 50%;
+  right: 20px;
+  transform: translateY(-50%);
+  max-width: 320px;
+  width: 300px;
+  background: rgba(0, 0, 0, 0.95);
+  border: 2px solid #ffc107;
+  border-radius: 20px;
+  padding: 15px;
+  backdrop-filter: blur(20px);
+  animation: slideInFromRight 0.5s ease-out;
+  z-index: 1000;
+  max-height: 70vh;
+  overflow-y: auto;
+  box-shadow: 0 10px 30px rgba(0, 0, 0, 0.5);
+}
+
+.summaryContent {
+  text-align: center;
+}
+
+.summaryHeader {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 15px;
+  padding-bottom: 10px;
+  border-bottom: 1px solid rgba(255, 193, 7, 0.3);
+}
+
+.minimizeButton {
+  background: rgba(255, 193, 7, 0.1);
+  border: 1px solid rgba(255, 193, 7, 0.3);
+  color: #ffc107;
+  border-radius: 50%;
+  width: 35px;
+  height: 35px;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 1.2rem;
+  transition: all 0.3s ease;
+}
+
+.minimizeButton:hover {
+  background: rgba(255, 193, 7, 0.2);
+  border-color: #ffc107;
+  transform: scale(1.1);
+}
+
+.bookingSummary.minimized {
+  padding: 10px;
+  max-width: 60px;
+  width: 60px;
+}
+
+.bookingSummary.minimized .summaryTitle {
+  display: none;
+}
+
+.summaryTitle {
+  font-size: 1.5rem;
+  color: #ffc107;
+  margin-bottom: 15px;
+}
+
+.summaryDetails {
+  margin-bottom: 20px;
+}
+
+.summaryItem {
+  display: flex;
+  justify-content: space-between;
+  margin-bottom: 8px;
+  padding: 5px 0;
+  border-bottom: 1px solid rgba(255, 193, 7, 0.2);
+}
+
+.summaryLabel {
+  color: rgba(255, 255, 255, 0.7);
+}
+
+.summaryValue {
+  color: white;
+  font-weight: bold;
+}
+
+.confirmButton {
+  width: 100%;
+  padding: 15px;
+  background: linear-gradient(135deg, #ffc107 0%, #ffbf00 100%);
+  color: black;
+  border: none;
+  border-radius: 25px;
+  font-size: 1.1rem;
+  font-weight: bold;
+  cursor: pointer;
+  transition: all 0.3s ease;
+  box-shadow: 0 4px 15px rgba(255, 193, 7, 0.3);
+}
+
+.confirmButton:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 6px 20px rgba(255, 193, 7, 0.4);
+  background: linear-gradient(135deg, #ffbf00 0%, #ffa000 100%);
+}
+
+/* Selected Slots Preview */
+.selectedSlotsPreview {
+  background: rgba(255, 193, 7, 0.1);
+  border-radius: 12px;
+  padding: 15px;
+  margin: 20px 0;
+  border: 1px solid rgba(255, 193, 7, 0.3);
+}
+
+.previewLabel {
+  color: #ffc107;
+  font-size: 1rem;
+  font-weight: bold;
+  display: block;
+  margin-bottom: 10px;
+}
+
+.selectedSlotsList {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.selectedSlotChip {
+  background: rgba(255, 193, 7, 0.2);
+  color: #ffc107;
+  padding: 4px 8px;
+  border-radius: 6px;
+  font-size: 0.8rem;
+  border: 1px solid rgba(255, 193, 7, 0.4);
+}
+
+/* Booking Confirmation Popup */
+.popupOverlay {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: rgba(0, 0, 0, 0.8);
+  backdrop-filter: blur(10px);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 1000;
+  padding: 20px;
+}
+
+.bookingPopup {
+  background: linear-gradient(135deg, rgba(30, 30, 30, 0.95), rgba(50, 50, 50, 0.95));
+  border-radius: 20px;
+  max-width: 500px;
+  width: 100%;
+  max-height: 90vh;
+  overflow-y: auto;
+  border: 1px solid rgba(255, 193, 7, 0.3);
+  box-shadow: 0 20px 40px rgba(255, 193, 7, 0.1);
+  animation: popupSlideIn 0.3s ease-out;
+}
+
+@keyframes popupSlideIn {
+  from {
+    opacity: 0;
+    transform: translateY(30px) scale(0.95);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+}
+
+.popupHeader {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 20px 25px 15px;
+  border-bottom: 1px solid rgba(255, 193, 7, 0.2);
+}
+
+.popupTitle {
+  color: #ffc107;
+  font-size: 1.4rem;
+  font-weight: bold;
+  margin: 0;
+}
+
+.closeButton {
+  background: none;
+  border: none;
+  color: rgba(255, 255, 255, 0.6);
+  font-size: 1.5rem;
+  cursor: pointer;
+  padding: 5px;
+  border-radius: 50%;
+  width: 35px;
+  height: 35px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: all 0.3s ease;
+}
+
+.closeButton:hover {
+  background: rgba(244, 67, 54, 0.2);
+  color: #f44336;
+}
+
+.popupContent {
+  padding: 20px 25px;
+}
+
+.gamePreview {
+  display: flex;
+  align-items: center;
+  background: rgba(255, 193, 7, 0.1);
+  padding: 15px;
+  border-radius: 12px;
+  margin-bottom: 20px;
+  border: 1px solid rgba(255, 193, 7, 0.2);
+}
+
+.gameIconLarge {
+  font-size: 3rem;
+  margin-right: 15px;
+  width: 60px;
+  height: 60px;
+  border-radius: 12px;
+  object-fit: cover;
+  border: 2px solid rgba(255, 193, 7, 0.3);
+  filter: drop-shadow(0 0 10px rgba(255, 193, 7, 0.4));
+}
+
+.gameIconLarge:not(img) {
+  width: auto;
+  height: auto;
+  border: none;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.gameNameLarge {
+  color: #ffc107;
+  font-size: 1.3rem;
+  font-weight: bold;
+  margin: 0 0 5px 0;
+}
+
+.gamePriceLarge {
+  color: rgba(255, 255, 255, 0.8);
+  margin: 0;
+  font-size: 0.95rem;
+}
+
+.bookingDetails {
+  margin-bottom: 20px;
+}
+
+.detailRow {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 10px 0;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+}
+
+.detailRow:last-child {
+  border-bottom: none;
+}
+
+.detailLabel {
+  color: rgba(255, 255, 255, 0.8);
+  font-weight: 500;
+}
+
+.detailValue {
+  color: #fff;
+  font-weight: bold;
+}
+
+.selectedTimesSection {
+  background: rgba(33, 150, 243, 0.1);
+  border-radius: 12px;
+  padding: 15px;
+  margin-bottom: 20px;
+  border: 1px solid rgba(33, 150, 243, 0.2);
+}
+
+.timesTitle {
+  color: #2196F3;
+  font-size: 1.1rem;
+  margin: 0 0 12px 0;
+  font-weight: bold;
+}
+
+.timeSlotsList {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+  gap: 8px;
+}
+
+.timeSlotItem {
+  display: flex;
+  align-items: center;
+  background: rgba(33, 150, 243, 0.1);
+  padding: 8px 12px;
+  border-radius: 8px;
+  border: 1px solid rgba(33, 150, 243, 0.3);
+}
+
+.timeSlotNumber {
+  color: #2196F3;
+  font-weight: bold;
+  margin-right: 8px;
+  min-width: 20px;
+}
+
+.timeSlotTime {
+  color: #fff;
+  font-weight: 500;
+  flex: 1;
+}
+
+.timeSlotDuration {
+  color: rgba(255, 255, 255, 0.6);
+  font-size: 0.8rem;
+}
+
+.pricingBreakdown {
+  background: rgba(76, 175, 80, 0.1);
+  border-radius: 12px;
+  padding: 15px;
+  border: 1px solid rgba(76, 175, 80, 0.2);
+}
+
+.priceRow {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 6px 0;
+  color: rgba(255, 255, 255, 0.8);
+}
+
+.priceLabel {
+  font-size: 0.9rem;
+}
+
+.priceValue {
+  font-weight: 500;
+  color: #fff;
+}
+
+.totalPriceRow {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 12px 0 6px;
+  border-top: 2px solid rgba(76, 175, 80, 0.3);
+  margin-top: 8px;
+}
+
+.totalLabel {
+  color: #4CAF50;
+  font-weight: bold;
+  font-size: 1.1rem;
+}
+
+.totalValue {
+  color: #4CAF50;
+  font-weight: bold;
+  font-size: 1.3rem;
+}
+
+.popupActions {
+  display: flex;
+  gap: 12px;
+  padding: 20px 25px;
+  border-top: 1px solid rgba(255, 193, 7, 0.2);
+}
+
+.cancelButton {
+  flex: 1;
+  padding: 12px 20px;
+  border-radius: 10px;
+  border: 2px solid rgba(244, 67, 54, 0.5);
+  background: transparent;
+  color: #f44336;
+  font-weight: bold;
+  cursor: pointer;
+  transition: all 0.3s ease;
+}
+
+.cancelButton:hover {
+  background: rgba(244, 67, 54, 0.1);
+  border-color: #f44336;
+}
+
+.finalConfirmButton {
+  flex: 2;
+  padding: 12px 16px;
+  background: linear-gradient(135deg, #4CAF50, #45a049);
+  color: white;
+  border: none;
+  border-radius: 8px;
+  font-size: 1rem;
+  font-weight: bold;
+  cursor: pointer;
+  transition: all 0.3s ease;
+}
+
+.finalConfirmButton:hover {
+  background: linear-gradient(135deg, #45a049, #3e8e41);
+  transform: translateY(-1px);
+}
+
+/* Real-time status animations */
+@keyframes pulse {
+  0% {
+    opacity: 1;
+    transform: scale(1);
+  }
+  50% {
+    opacity: 0.6;
+    transform: scale(1.2);
+  }
+  100% {
+    opacity: 1;
+    transform: scale(1);
+  }
+}
+
+.realTimeStatus {
+  animation: slideInDown 0.5s ease-out;
+}
+
+@keyframes slideInDown {
+  from {
+    opacity: 0;
+    transform: translateY(-10px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}

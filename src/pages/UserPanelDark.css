@@ -1,0 +1,213 @@
+/* Modern Dark Theme for UserPanel */
+.user-panel-dark {
+  background: linear-gradient(135deg, #1a1a1a 0%, #2d2d2d 100%);
+  min-height: 100vh;
+  color: white;
+  margin: 0;
+  padding: 0;
+}
+
+/* Real-time status animations */
+@keyframes pulse {
+  0% {
+    opacity: 1;
+    transform: scale(1);
+  }
+  50% {
+    opacity: 0.6;
+    transform: scale(1.2);
+  }
+  100% {
+    opacity: 1;
+    transform: scale(1);
+  }
+}
+
+.user-panel-dark .bg-light {
+  background: rgba(30, 30, 30, 0.8) !important;
+  border: 1px solid rgba(255, 193, 7, 0.2) !important;
+  color: white !important;
+}
+
+.user-panel-dark .card {
+  background: rgba(40, 40, 40, 0.8) !important;
+  border: 1px solid rgba(255, 193, 7, 0.2) !important;
+  backdrop-filter: blur(10px);
+}
+
+.user-panel-dark .card-body {
+  color: white !important;
+}
+
+.user-panel-dark .text-muted {
+  color: rgba(255, 255, 255, 0.7) !important;
+}
+
+.user-panel-dark .btn-secondary {
+  background: linear-gradient(135deg, #ffc107, #ff9800) !important;
+  border: none !important;
+  color: #000 !important;
+  font-weight: bold;
+}
+
+.user-panel-dark .btn-secondary:hover {
+  background: linear-gradient(135deg, #ffcd38, #ffa726) !important;
+  color: #000 !important;
+  transform: translateY(-2px);
+}
+
+.user-panel-dark .btn-success {
+  background: linear-gradient(135deg, #4CAF50, #45a049) !important;
+  border: none !important;
+}
+
+.user-panel-dark .btn-success:hover {
+  background: linear-gradient(135deg, #45a049, #3d8b40) !important;
+  transform: translateY(-2px);
+}
+
+.user-panel-dark .btn-danger {
+  background: linear-gradient(135deg, #f44336, #d32f2f) !important;
+  border: none !important;
+}
+
+.user-panel-dark .btn-danger:hover {
+  background: linear-gradient(135deg, #d32f2f, #c62828) !important;
+  transform: translateY(-2px);
+}
+
+.user-panel-dark .nav-link {
+  color: rgba(255, 255, 255, 0.8) !important;
+  border-radius: 8px;
+  transition: all 0.3s ease;
+}
+
+.user-panel-dark .nav-link:hover {
+  background: rgba(255, 193, 7, 0.1) !important;
+  color: #ffc107 !important;
+  transform: translateX(5px);
+}
+
+.user-panel-dark .nav-link.fw-bold {
+  background: rgba(255, 193, 7, 0.2) !important;
+  color: #ffc107 !important;
+}
+
+.user-panel-dark h4, .user-panel-dark h5 {
+  color: #ffc107 !important;
+  font-weight: bold;
+}
+
+.user-panel-dark .list-group-item {
+  background: rgba(50, 50, 50, 0.8) !important;
+  border: 1px solid rgba(255, 193, 7, 0.2) !important;
+  color: white !important;
+  margin-bottom: 8px;
+  border-radius: 8px;
+}
+
+.user-panel-dark .form-control, .user-panel-dark .form-select {
+  background: rgba(60, 60, 60, 0.8) !important;
+  border: 1px solid rgba(255, 193, 7, 0.3) !important;
+  color: white !important;
+}
+
+.user-panel-dark .form-control:focus, .user-panel-dark .form-select:focus {
+  background: rgba(70, 70, 70, 0.9) !important;
+  border-color: #ffc107 !important;
+  color: white !important;
+  box-shadow: 0 0 0 0.2rem rgba(255, 193, 7, 0.25) !important;
+}
+
+.user-panel-dark .alert-info {
+  background: rgba(33, 150, 243, 0.1) !important;
+  border-color: rgba(33, 150, 243, 0.3) !important;
+  color: #81D4FA !important;
+}
+
+.user-panel-dark .badge.bg-success {
+  background: rgba(76, 175, 80, 0.8) !important;
+}
+
+.user-panel-dark .badge.bg-warning {
+  background: rgba(255, 193, 7, 0.8) !important;
+  color: #000 !important;
+}
+
+.user-panel-dark .badge.bg-danger {
+  background: rgba(244, 67, 54, 0.8) !important;
+}
+
+.user-panel-dark .text-primary {
+  color: #ffc107 !important;
+}
+
+.user-panel-dark .text-warning {
+  color: #ffc107 !important;
+}
+
+/* Modern Button Styling */
+.user-panel-dark .btn {
+  border-radius: 10px;
+  transition: all 0.3s ease;
+}
+
+.user-panel-dark .btn:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 5px 15px rgba(0, 0, 0, 0.3);
+}
+
+/* Enhanced Cards */
+.user-panel-dark .card:hover {
+  transform: translateY(-3px);
+  box-shadow: 0 8px 25px rgba(0, 0, 0, 0.3);
+}
+
+/* React Calendar Dark Theme - Remove these since we're using custom calendar */
+/*
+.user-panel-dark .react-calendar {
+  background: rgba(50, 50, 50, 0.8) !important;
+  border: 1px solid rgba(255, 193, 7, 0.3) !important;
+  border-radius: 15px !important;
+  color: white !important;
+}
+
+.user-panel-dark .react-calendar__tile {
+  background: rgba(60, 60, 60, 0.8) !important;
+  color: white !important;
+  border-radius: 5px !important;
+}
+
+.user-panel-dark .react-calendar__tile:hover {
+  background: rgba(255, 193, 7, 0.2) !important;
+  color: #ffc107 !important;
+}
+
+.user-panel-dark .react-calendar__tile--active {
+  background: rgba(255, 193, 7, 0.4) !important;
+  color: #000 !important;
+}
+
+.user-panel-dark .react-calendar__navigation button {
+  background: rgba(255, 193, 7, 0.1) !important;
+  border: 1px solid rgba(255, 193, 7, 0.3) !important;
+  color: #ffc107 !important;
+}
+
+.user-panel-dark .react-calendar__navigation button:hover {
+  background: rgba(255, 193, 7, 0.2) !important;
+}
+*/
+
+/* Loading and Empty States */
+.user-panel-dark .text-muted {
+  color: rgba(255, 255, 255, 0.6) !important;
+}
+
+/* Responsive enhancements */
+@media (max-width: 768px) {
+  .user-panel-dark .d-flex.gap-4 {
+    flex-direction: column !important;
+    gap: 1rem !important;
+  }
+}

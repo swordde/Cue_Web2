@@ -1,0 +1,252 @@
+/* CustomCalendar.module.css - Matching BookGame Calendar Style */
+
+.calendarSection {
+  background: rgba(255, 255, 255, 0.03);
+  border: 2px solid rgba(255, 193, 7, 0.2);
+  border-radius: 15px;
+  padding: 15px;
+  backdrop-filter: blur(15px);
+  width: 100%;
+  max-width: 400px;
+}
+
+.calendarHeader {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 15px;
+}
+
+.navButton {
+  background: rgba(255, 193, 7, 0.1);
+  border: 1px solid rgba(255, 193, 7, 0.3);
+  color: #ffc107;
+  width: 32px;
+  height: 32px;
+  border-radius: 50%;
+  cursor: pointer;
+  transition: all 0.3s ease;
+  font-size: 1rem;
+  font-weight: bold;
+}
+
+.navButton:hover {
+  background: rgba(255, 193, 7, 0.2);
+  border-color: #ffc107;
+  transform: scale(1.1);
+}
+
+.monthYear {
+  font-size: 1.1rem;
+  color: rgba(255, 255, 255, 0.9);
+  margin: 0;
+  font-weight: bold;
+  text-align: center;
+  flex: 1;
+}
+
+.calendar {
+  width: 100%;
+}
+
+.weekDays {
+  display: grid;
+  grid-template-columns: repeat(7, 1fr);
+  gap: 3px;
+  margin-bottom: 8px;
+}
+
+.weekDay {
+  text-align: center;
+  padding: 6px;
+  font-size: 0.75rem;
+  color: rgba(255, 255, 255, 0.6);
+  font-weight: bold;
+}
+
+.calendarDays {
+  display: grid;
+  grid-template-columns: repeat(7, 1fr);
+  gap: 3px;
+}
+
+.calendarDay {
+  aspect-ratio: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 8px;
+  font-size: 0.8rem;
+  cursor: pointer;
+  transition: all 0.3s ease;
+  background: rgba(255, 255, 255, 0.02);
+  position: relative;
+  flex-direction: column;
+  padding: 4px;
+  min-height: 35px;
+}
+
+.calendarDay.available {
+  background: rgba(255, 255, 255, 0.05);
+  border: 1px solid rgba(255, 193, 7, 0.3);
+  color: rgba(255, 255, 255, 0.8);
+}
+
+.calendarDay.available:hover {
+  background: rgba(255, 193, 7, 0.1);
+  border-color: #ffc107;
+  transform: scale(1.05);
+}
+
+.calendarDay.selected {
+  background: #ffc107;
+  color: black;
+  font-weight: bold;
+  border-color: #ffc107;
+  box-shadow: 0 0 15px rgba(255, 193, 7, 0.4);
+}
+
+.calendarDay.past {
+  color: rgba(255, 255, 255, 0.3);
+  cursor: not-allowed;
+  background: rgba(0, 0, 0, 0.1);
+}
+
+.calendarDay.pastWithBookings {
+  color: rgba(255, 255, 255, 0.7);
+  cursor: pointer;
+  background: rgba(76, 175, 80, 0.1);
+  border: 1px solid rgba(76, 175, 80, 0.4);
+}
+
+.calendarDay.pastWithBookings:hover {
+  background: rgba(76, 175, 80, 0.2);
+  border-color: #4CAF50;
+  transform: scale(1.05);
+}
+
+.calendarDay.hasBookings {
+  border-color: #4CAF50;
+}
+
+.calendarDay.hasBookings.available {
+  background: rgba(76, 175, 80, 0.1);
+}
+
+.dayNumber {
+  font-size: 0.8rem;
+  font-weight: 500;
+}
+
+.bookingIndicator {
+  width: 14px;
+  height: 14px;
+  background: #4CAF50;
+  border-radius: 50%;
+  position: absolute;
+  bottom: 2px;
+  right: 2px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 0.6rem;
+  font-weight: bold;
+  color: white;
+  animation: pulse 2s infinite;
+}
+
+.bookingCount {
+  font-size: 0.6rem;
+  font-weight: bold;
+  color: white;
+}
+
+.calendarDay.selected .bookingIndicator {
+  background: #000;
+}
+
+.calendarDay.pastWithBookings .bookingIndicator {
+  background: #FF9800;
+  animation: none;
+}
+
+.calendarDay.selected.pastWithBookings .bookingIndicator {
+  background: #000;
+}
+
+@keyframes pulse {
+  0% {
+    transform: scale(1);
+    opacity: 1;
+  }
+  50% {
+    transform: scale(1.2);
+    opacity: 0.7;
+  }
+  100% {
+    transform: scale(1);
+    opacity: 1;
+  }
+}
+
+/* Responsive Design */
+@media (max-width: 768px) {
+  .calendarSection {
+    padding: 20px 15px;
+  }
+  
+  .calendarHeader {
+    margin-bottom: 15px;
+  }
+  
+  .monthYear {
+    font-size: 1.2rem;
+  }
+  
+  .navButton {
+    width: 35px;
+    height: 35px;
+    font-size: 1rem;
+  }
+  
+  .calendarDay {
+    font-size: 0.8rem;
+  }
+  
+  .weekDay {
+    font-size: 0.8rem;
+    padding: 8px;
+  }
+}
+
+@media (max-width: 480px) {
+  .calendarSection {
+    padding: 15px 10px;
+  }
+  
+  .calendarDays {
+    gap: 3px;
+  }
+  
+  .weekDays {
+    gap: 3px;
+  }
+  
+  .calendarDay {
+    font-size: 0.7rem;
+    padding: 3px;
+  }
+  
+  .weekDay {
+    font-size: 0.7rem;
+    padding: 5px;
+  }
+  
+  .bookingIndicator {
+    width: 16px;
+    height: 16px;
+    bottom: 1px;
+    right: 1px;
+    font-size: 0.6rem;
+  }
+}

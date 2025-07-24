@@ -1,0 +1,513 @@
+/* BookingForm.module.css - Cue Club Cafe Theme */
+
+.bookingForm {
+  min-height: 100vh;
+  background: linear-gradient(135deg, #1a1a1a 0%, #2d2d2d 100%);
+  color: white;
+  position: relative;
+  overflow-x: hidden;
+}
+
+/* Header Section */
+.header {
+  background: rgba(30, 30, 30, 0.95);
+  backdrop-filter: blur(10px);
+  padding: 20px;
+  border-bottom: 1px solid rgba(255, 193, 7, 0.2);
+  position: sticky;
+  top: 0;
+  z-index: 100;
+}
+
+.backButton {
+  background: transparent;
+  border: 2px solid rgba(255, 193, 7, 0.5);
+  color: #ffc107;
+  padding: 10px 20px;
+  border-radius: 8px;
+  cursor: pointer;
+  font-weight: 500;
+  transition: all 0.3s ease;
+  margin-bottom: 15px;
+}
+
+.backButton:hover {
+  background: rgba(255, 193, 7, 0.1);
+  border-color: #ffc107;
+  transform: translateX(-5px);
+}
+
+.headerContent {
+  text-align: center;
+}
+
+.eventInfo {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 10px;
+}
+
+.eventIcon {
+  font-size: 4rem;
+}
+
+.pageTitle {
+  font-size: 2.5rem;
+  color: #ffc107;
+  margin: 0;
+  font-weight: bold;
+}
+
+.pageSubtitle {
+  color: rgba(255, 255, 255, 0.8);
+  font-size: 1.1rem;
+  margin: 0;
+}
+
+/* Main Content */
+.bookingFormContent {
+  padding: 40px 20px;
+  max-width: 800px;
+  margin: 0 auto;
+  position: relative;
+}
+
+.form {
+  display: flex;
+  flex-direction: column;
+}
+
+.formSection {
+  background: rgba(30, 30, 30, 0.6);
+  border-radius: 20px;
+  padding: 30px;
+  margin-bottom: 30px;
+  border: 1px solid rgba(255, 193, 7, 0.2);
+  backdrop-filter: blur(10px);
+}
+
+.sectionHeading {
+  color: #ffc107;
+  font-size: 1.5rem;
+  font-weight: bold;
+  margin: 0 0 20px 0;
+  padding-bottom: 10px;
+  border-bottom: 2px solid rgba(255, 193, 7, 0.3);
+}
+
+.formGrid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+  gap: 20px;
+}
+
+.formGroup {
+  display: flex;
+  flex-direction: column;
+}
+
+.formGroup label {
+  color: rgba(255, 255, 255, 0.9);
+  margin-bottom: 8px;
+  font-weight: 500;
+}
+
+.formGroup input,
+.formGroup select,
+.formGroup textarea {
+  background: rgba(50, 50, 50, 0.8);
+  border: 2px solid rgba(255, 193, 7, 0.3);
+  border-radius: 8px;
+  padding: 12px;
+  color: white;
+  font-size: 1rem;
+  transition: all 0.3s ease;
+}
+
+.formGroup input:focus,
+.formGroup select:focus,
+.formGroup textarea:focus {
+  outline: none;
+  border-color: #ffc107;
+  background: rgba(60, 60, 60, 0.9);
+}
+
+.formGroup input::placeholder,
+.formGroup textarea::placeholder {
+  color: rgba(255, 255, 255, 0.5);
+}
+
+.formGroup textarea {
+  resize: vertical;
+  min-height: 100px;
+}
+
+.error {
+  border-color: #f44336 !important;
+  background: rgba(244, 67, 54, 0.1) !important;
+}
+
+.errorText {
+  color: #f44336;
+  font-size: 0.8rem;
+  margin-top: 5px;
+}
+
+/* Checkbox Styles */
+.checkboxGroup {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.checkboxItem {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.checkboxItem input[type="checkbox"] {
+  width: 18px;
+  height: 18px;
+  accent-color: #ffc107;
+}
+
+.checkboxItem label {
+  margin: 0;
+  cursor: pointer;
+}
+
+/* Checkbox Grid */
+.checkboxGrid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+  gap: 15px;
+  margin-top: 10px;
+}
+
+/* Special Requirements */
+.specialRequirements {
+  background: rgba(33, 150, 243, 0.1);
+  border-radius: 15px;
+  padding: 20px;
+  border: 1px solid rgba(33, 150, 243, 0.3);
+}
+
+/* Gift Selection */
+.giftSelection {
+  background: rgba(76, 175, 80, 0.1);
+  border-radius: 15px;
+  padding: 20px;
+  border: 1px solid rgba(76, 175, 80, 0.3);
+}
+
+.giftGrid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+  gap: 15px;
+  margin-top: 15px;
+}
+
+.giftCard {
+  background: rgba(50, 50, 50, 0.8);
+  border: 2px solid rgba(255, 193, 7, 0.2);
+  border-radius: 10px;
+  padding: 15px;
+  cursor: pointer;
+  transition: all 0.3s ease;
+  text-align: center;
+}
+
+.giftCard:hover {
+  border-color: rgba(255, 193, 7, 0.5);
+  transform: translateY(-3px);
+}
+
+.giftCard.selected {
+  border-color: #ffc107;
+  background: rgba(255, 193, 7, 0.2);
+}
+
+.giftIcon {
+  font-size: 2rem;
+  margin-bottom: 10px;
+}
+
+.giftName {
+  color: #ffc107;
+  font-weight: bold;
+  margin: 0 0 5px 0;
+}
+
+.giftPrice {
+  color: #4CAF50;
+  font-weight: bold;
+}
+
+.giftDescription {
+  color: rgba(255, 255, 255, 0.7);
+  font-size: 0.8rem;
+  margin-top: 5px;
+}
+
+.giftSelectionIndicator {
+  color: rgba(255, 255, 255, 0.6);
+  font-size: 0.8rem;
+  margin-top: 10px;
+}
+
+.giftCard.selected .giftSelectionIndicator {
+  color: #ffc107;
+  font-weight: bold;
+}
+
+/* Gift Selection Styles */
+.sectionDescription {
+  color: rgba(255, 255, 255, 0.7);
+  margin-bottom: 20px;
+  font-style: italic;
+}
+
+.selectedGiftsSummary {
+  background: rgba(255, 193, 7, 0.1);
+  border-radius: 15px;
+  padding: 25px;
+  margin-top: 20px;
+  border: 1px solid rgba(255, 193, 7, 0.3);
+}
+
+.summaryContent {
+  text-align: center;
+}
+
+.summaryTitle {
+  color: #ffc107;
+  font-size: 1.3rem;
+  font-weight: bold;
+  margin: 0 0 15px 0;
+}
+
+.selectedList {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: 10px;
+  margin-bottom: 15px;
+}
+
+.selectedGiftTag {
+  background: rgba(255, 193, 7, 0.2);
+  color: #ffc107;
+  padding: 8px 12px;
+  border-radius: 15px;
+  font-size: 0.8rem;
+  border: 1px solid rgba(255, 193, 7, 0.4);
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.removeGift {
+  background: rgba(244, 67, 54, 0.2);
+  border: none;
+  color: #f44336;
+  width: 20px;
+  height: 20px;
+  border-radius: 50%;
+  cursor: pointer;
+  font-size: 0.8rem;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.removeGift:hover {
+  background: rgba(244, 67, 54, 0.4);
+}
+
+.totalPrice {
+  color: #4CAF50;
+  font-size: 1.2rem;
+}
+
+.giftNote {
+  background: rgba(33, 150, 243, 0.1);
+  border-radius: 10px;
+  padding: 15px;
+  margin-top: 20px;
+  border: 1px solid rgba(33, 150, 243, 0.3);
+}
+
+.giftNote p {
+  color: rgba(255, 255, 255, 0.8);
+  margin: 0;
+}
+
+.giftButton {
+  background: linear-gradient(135deg, #4CAF50, #45a049);
+  border: none;
+  padding: 8px 16px;
+  border-radius: 15px;
+  color: white;
+  font-weight: bold;
+  cursor: pointer;
+  transition: all 0.3s ease;
+  font-size: 0.9rem;
+}
+
+.giftButton:hover {
+  background: linear-gradient(135deg, #45a049, #3d8b40);
+  transform: translateY(-2px);
+}
+
+/* Form Actions */
+.formActions {
+  display: flex;
+  gap: 20px;
+  justify-content: center;
+  margin-top: 40px;
+  padding-top: 30px;
+  border-top: 1px solid rgba(255, 193, 7, 0.2);
+}
+
+.cancelButton {
+  background: transparent;
+  border: 2px solid rgba(244, 67, 54, 0.5);
+  color: #f44336;
+  padding: 15px 30px;
+  border-radius: 25px;
+  cursor: pointer;
+  font-weight: bold;
+  transition: all 0.3s ease;
+  flex: 1;
+  max-width: 200px;
+}
+
+.cancelButton:hover {
+  background: rgba(244, 67, 54, 0.1);
+  border-color: #f44336;
+  transform: translateY(-2px);
+}
+
+.submitButton {
+  background: linear-gradient(135deg, #ffc107, #ff9800);
+  border: none;
+  padding: 15px 40px;
+  border-radius: 25px;
+  color: #000;
+  font-weight: bold;
+  font-size: 1.1rem;
+  cursor: pointer;
+  transition: all 0.3s ease;
+  box-shadow: 0 4px 15px rgba(255, 193, 7, 0.3);
+  flex: 2;
+  max-width: 300px;
+}
+
+.submitButton:hover {
+  background: linear-gradient(135deg, #ffcd38, #ffa726);
+  transform: translateY(-3px);
+  box-shadow: 0 8px 25px rgba(255, 193, 7, 0.4);
+}
+
+/* Background Effects */
+.backgroundEffects {
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  pointer-events: none;
+  overflow: hidden;
+}
+
+.floatingOrb {
+  position: absolute;
+  width: 150px;
+  height: 150px;
+  border-radius: 50%;
+  background: radial-gradient(circle, rgba(255, 193, 7, 0.1) 0%, rgba(255, 193, 7, 0.05) 50%, transparent 100%);
+  animation: float 8s ease-in-out infinite;
+}
+
+.floatingOrb:nth-child(1) {
+  top: 20%;
+  left: 10%;
+  animation-delay: 0s;
+}
+
+.floatingOrb:nth-child(2) {
+  bottom: 20%;
+  right: 10%;
+  animation-delay: 4s;
+}
+
+@keyframes float {
+  0%, 100% {
+    transform: translateY(0px) scale(1);
+  }
+  50% {
+    transform: translateY(-15px) scale(1.05);
+  }
+}
+
+/* Mobile Responsive */
+@media (max-width: 768px) {
+  .header {
+    padding: 15px;
+  }
+  
+  .pageTitle {
+    font-size: 2rem;
+  }
+  
+  .eventIcon {
+    font-size: 3rem;
+  }
+  
+  .bookingFormContent {
+    padding: 30px 15px;
+  }
+  
+  .formSection {
+    padding: 20px 15px;
+  }
+  
+  .formGrid {
+    grid-template-columns: 1fr;
+  }
+  
+  .giftGrid {
+    grid-template-columns: 1fr;
+  }
+  
+  .formActions {
+    flex-direction: column;
+    align-items: center;
+  }
+  
+  .cancelButton,
+  .submitButton {
+    width: 100%;
+    max-width: none;
+  }
+  
+  .checkboxGrid {
+    grid-template-columns: 1fr;
+  }
+}
+
+@media (max-width: 480px) {
+  .pageTitle {
+    font-size: 1.5rem;
+  }
+  
+  .sectionHeading {
+    font-size: 1.2rem;
+  }
+  
+  .formSection {
+    padding: 15px;
+  }
+}

@@ -1,14 +1,18 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import Loading from "../components/Loading";
-import Calendar from "react-calendar";
-import 'react-calendar/dist/Calendar.css';
+import CustomCalendar from "../components/CustomCalendar";
 import { useNavigate, Link } from 'react-router-dom';
 import GameSelector from "../components/GameSelector";
 import SlotGrid from "../components/SlotGrid";
-import { gameService, slotService, bookingService } from "../firebase/services";
+import { gameService, slotService, bookingService, realtimeService } from "../firebase/services";
+import { userService } from "../firebase/services";
 import { auth } from "../firebase/config";
 import { onAuthStateChanged, signOut } from "firebase/auth";
 import EditBookingModal from "../components/EditBookingModal";
+import { useToast } from '../contexts/ToastContext';
+import BookingStatusHistory from '../components/BookingStatusHistory';
+import { resolveGameName, createToastHelper, handleUserAuthentication, handleLogout as handleLogoutUtil } from '../utils/commonUtils';
+import './UserPanelDark.css';
 
 const SIDEBAR_LINKS = [
   { key: 'calendar', label: '📅 Calendar' },
@@ -42,41 +46,131 @@ export default function UserPanel() {
   const [filterStatus, setFilterStatus] = useState("");
   const [filterDate, setFilterDate] = useState("");
   const [sortOrder, setSortOrder] = useState("desc");
+  const [statusHistoryModal, setStatusHistoryModal] = useState({ show: false, booking: null });
+  const { showSuccess, showError, showInfo } = useToast();
+
+  // Real-time listener refs
+  const userBookingsUnsub = useRef(null);
+
+  // Helper function to show toasts based on type
+  const showToast = createToastHelper({ showSuccess, showError, showInfo });
 
   // Check authentication
   useEffect(() => {
-    const unsubscribe = onAuthStateChanged(auth, (user) => {
+    const unsubscribe = onAuthStateChanged(auth, async (user) => {
       if (!user) {
         navigate('/login');
       } else {
         setCurrentUser(user);
+        // Normalize mobile number
+        let mobile = user.phoneNumber;
+        if (mobile && mobile.startsWith('+91')) {
+          mobile = mobile.slice(3);
+        }
+        // Always fetch latest user data from Firestore
+        let userData;
+        if (mobile) {
+          userData = await userService.getUserByMobile(mobile);
+        } else if (user.email) {
+          userData = await userService.getUserByEmail(user.email);
+        }
+        if (userData && userData.isActive === false) {
+          await signOut(auth);
+          showToast('Your account has been deactivated. Please contact support.', 'error');
+          navigate('/login');
+          return;
+        }
         // Load user data and bookings
         loadUserData(user);
       }
     });
-    return () => unsubscribe();
+    return () => {
+      unsubscribe();
+      // Cleanup real-time listeners
+      if (userBookingsUnsub.current) {
+        try {
+          userBookingsUnsub.current();
+          userBookingsUnsub.current = null;
+        } catch (error) {
+          console.error('Error cleaning up user bookings listener:', error);
+        }
+      }
+    };
   }, [navigate]);
 
+  // Also add the check in loadUserData after fetching userData
   const loadUserData = async (user) => {
     setLoading(true);
     try {
-      // Load user's bookings
-      const userBookings = await bookingService.getUserBookings(user.phoneNumber || user.email);
-      setBookings(userBookings);
+      // Normalize mobile number
+      let mobile = user.phoneNumber;
+      if (mobile && mobile.startsWith('+91')) {
+        mobile = mobile.slice(3);
+      }
+      
+      // Clean up any existing listener before setting up new one
+      if (userBookingsUnsub.current) {
+        try {
+          userBookingsUnsub.current();
+        } catch (error) {
+          console.error('Error cleaning up previous listener:', error);
+        }
+        userBookingsUnsub.current = null;
+      }
+      
+      // Setup real-time listener for user bookings
+      const userId = mobile || user.email;
+      userBookingsUnsub.current = realtimeService.onUserBookingsChange(userId, (userBookings) => {
+        // Check if component is still mounted and user is still authenticated
+        if (!auth.currentUser) {
+          return;
+        }
+        
+        console.log('Real-time user bookings updated:', userBookings.length);
+        setBookings(userBookings);
+        if (userBookings.length > 0) {
+          // Show toast for new bookings (avoid showing on initial load)
+          const now = Date.now();
+          const recentBookings = userBookings.filter(booking => {
+            const bookingDate = new Date(booking.createdAt?.seconds ? booking.createdAt.seconds * 1000 : booking.createdAt);
+            return (now - bookingDate.getTime()) < 5000; // Less than 5 seconds old
+          });
+          
+          if (recentBookings.length > 0 && !loading) {
+            showToast(`${recentBookings.length} booking(s) updated in real-time!`, 'info');
+          }
+        }
+      });
       
       // Load games for editing
       const allGames = await gameService.getAllGames();
       setGames(allGames);
       
-      // Set user data (you can expand this based on your user data structure)
+      // Get user data from Firestore (including name)
+      let userData;
+      if (mobile) {
+        userData = await userService.getUserByMobile(mobile);
+      } else if (user.email) {
+        userData = await userService.getUserByEmail(user.email);
+      }
+      // Block deactivated users
+      if (userData && userData.isActive === false) {
+        await signOut(auth);
+        showToast('Your account has been deactivated. Please contact support.', 'error');
+        navigate('/login');
+        return;
+      }
+      // Set user data from Firestore
       setUser({
-        mobile: user.phoneNumber || user.email,
-        name: user.displayName || 'User',
-        streak: 0, // You can load this from Firestore
-        clubCoins: 0 // You can load this from Firestore
+        mobile: mobile || user.email,
+        name: userData?.name || user.displayName || 'User',
+        streak: userData?.streak || 0,
+        clubCoins: userData?.clubCoins || 0
       });
     } catch (err) {
       setError("Failed to load user data");
+      showToast('Failed to load user data', 'error');
+      console.error('Failed to load user data:', err);
     } finally {
       setLoading(false);
     }
@@ -95,6 +189,7 @@ export default function UserPanel() {
         setSlots(slotList);
       } catch (err) {
         setError("Failed to load slots");
+        showToast('Failed to load slots', 'error');
       } finally {
         setLoading(false);
       }
@@ -109,11 +204,14 @@ export default function UserPanel() {
 
   // Filtered and sorted bookings for table
   const filteredBookings = bookings
-    .filter(b =>
-      (!filterGame || b.game === filterGame) &&
-      (!filterStatus || b.status === filterStatus) &&
-      (!filterDate || b.date === filterDate)
-    )
+    .filter(b => {
+      const gameId = typeof b.game === 'object' ? b.game.id : b.game;
+      return (
+        (!filterGame || gameId === filterGame) &&
+        (!filterStatus || b.status === filterStatus) &&
+        (!filterDate || b.date === filterDate)
+      );
+    })
     .sort((a, b) => {
       if (sortOrder === "desc") {
         return new Date(b.date + 'T' + b.time) - new Date(a.date + 'T' + a.time);
@@ -130,11 +228,11 @@ export default function UserPanel() {
     if (window.confirm('Are you sure you want to cancel this booking?')) {
       try {
         await bookingService.updateBookingStatus(bookingId, 'Cancelled');
-        // Reload bookings
-        const userBookings = await bookingService.getUserBookings(currentUser.phoneNumber || currentUser.email);
-        setBookings(userBookings);
+        // Real-time listener will update bookings automatically
+        showToast('Booking cancelled successfully!', 'success');
       } catch (err) {
-        setError("Failed to cancel booking");
+        setError('Failed to cancel booking');
+        showToast('Failed to cancel booking', 'error');
       }
     }
   };
@@ -162,6 +260,10 @@ export default function UserPanel() {
     setShowDetailsModal(false);
   };
 
+  const handleViewStatusHistory = (booking) => {
+    setStatusHistoryModal({ show: true, booking });
+  };
+
   const handleEditSave = async () => {
     try {
       const bookingToUpdate = bookings[editIndex];
@@ -169,19 +271,27 @@ export default function UserPanel() {
         // Update booking in Firestore
         await bookingService.updateBookingStatus(bookingToUpdate.id, 'Updated');
         
-        // Reload bookings
-        const userBookings = await bookingService.getUserBookings(currentUser.phoneNumber || currentUser.email);
-        setBookings(userBookings);
+        // Real-time listener will update bookings automatically
         setShowEditModal(false);
+        showToast('Booking updated successfully!', 'success');
       }
     } catch (err) {
       setError("Failed to update booking");
+      showToast('Failed to update booking', 'error');
     }
   };
 
   const handleLogout = async () => {
-    await signOut(auth);
-    navigate('/login');
+    const clearUserData = () => {
+      setUser(null);
+      setBookings([]);
+    };
+
+    const cleanupFunctions = [
+      userBookingsUnsub.current
+    ];
+
+    await handleLogoutUtil(navigate, showToast, setLoading, clearUserData, cleanupFunctions);
   };
 
   if (loading) {
@@ -193,84 +303,220 @@ export default function UserPanel() {
   }
 
   return (
-    <div className="container-fluid mt-4">
+    <div className="user-panel-dark">
+      <div className="container-fluid p-3">
       <div className="row">
         {/* Sidebar */}
         <nav className="col-md-3 col-lg-2 d-md-block bg-light sidebar p-3 rounded">
-          <h4 className="mb-4">User Panel</h4>
-          {/* User Info Card */}
-          <div className="card mb-4 shadow-sm border-0">
-            <div className="card-body text-center">
-              <div className="mb-2">
-                <span className="fw-bold fs-5">{user.name}</span>
-              </div>
-              <div className="text-muted small mb-1">{user.mobile}</div>
+          <h4 className="mb-3" style={{ fontSize: '1.3rem' }}>User Panel</h4>
+          
+          {/* User Info Card - Compact */}
+          <div className="card mb-3 shadow-sm border-0" style={{ fontSize: '0.9rem' }}>
+            <div className="card-body text-center py-2">
+              <div className="fw-bold">{user.name}</div>
+              <div className="text-muted small">{user.email}</div>
             </div>
           </div>
-          <Link to="/dashboard" className="btn btn-secondary w-100 mb-3">Go to Dashboard</Link>
+
+          {/* Streak and Club Coins - Compact */}
+          <div className="row g-2 mb-3">
+            <div className="col-6">
+              <div className="card p-2 text-center bg-light border-0 shadow-sm">
+                <div className="fw-bold text-primary" style={{ fontSize: '1.2rem' }}>{streak}</div>
+                <div style={{ fontSize: '0.7rem' }}>Day Streak</div>
+              </div>
+            </div>
+            <div className="col-6">
+              <div className="card p-2 text-center bg-light border-0 shadow-sm">
+                <div className="fw-bold text-warning" style={{ fontSize: '1.2rem' }}>{clubCoins}</div>
+                <div style={{ fontSize: '0.7rem' }}>Club Coins</div>
+              </div>
+            </div>
+          </div>
+
+          {/* Dashboard Button */}
+          <Link to="/dashboard" className="btn btn-warning w-100 mb-3 fw-bold" style={{ fontSize: '0.9rem' }}>
+            🏠 Go to Dashboard
+          </Link>
+          
+          {/* Navigation Menu */}
           <ul className="nav flex-column">
             {SIDEBAR_LINKS.map(link => (
-              <li className="nav-item mb-2" key={link.key}>
+              <li className="nav-item mb-1" key={link.key}>
                 <button
-                  className={`nav-link btn btn-link w-100 text-start ${activeTab === link.key ? 'fw-bold text-primary' : ''}`}
+                  className={`nav-link btn btn-link w-100 text-start py-2 ${activeTab === link.key ? 'fw-bold text-primary' : ''}`}
                   onClick={() => setActiveTab(link.key)}
+                  style={{ fontSize: '0.85rem' }}
                 >
                   {link.label}
                 </button>
               </li>
             ))}
-            <li className="nav-item mt-3">
-              <Link to="/book" className="btn btn-success w-100 fw-bold">Book a Game</Link>
-            </li>
-            <li className="nav-item mt-4">
-              <button
-                className="btn btn-danger w-100 fw-bold"
-                onClick={handleLogout}
-              >
-                Logout
-              </button>
-            </li>
           </ul>
+
+          {/* Action Buttons */}
+          <div className="mt-3">
+            <Link to="/book" className="btn btn-success w-100 mb-2 fw-bold" style={{ fontSize: '0.9rem' }}>
+              🎮 Book a Game
+            </Link>
+            <button
+              className="btn btn-danger w-100 fw-bold"
+              onClick={handleLogout}
+              style={{ fontSize: '0.9rem' }}
+            >
+              🚪 Logout
+            </button>
+          </div>
         </nav>
         {/* Main Content */}
         <main className="col-md-9 col-lg-10 ms-sm-auto px-4">
-          {/* Streak and Club Coins */}
-          <div className="d-flex gap-4 align-items-center mb-4">
-            <div className="card p-3 text-center bg-light border-0 shadow-sm">
-              <div className="fw-bold text-primary" style={{ fontSize: '1.5rem' }}>{streak}</div>
-              <div className="small">Day Streak</div>
-            </div>
-            <div className="card p-3 text-center bg-light border-0 shadow-sm">
-              <div className="fw-bold text-warning" style={{ fontSize: '1.5rem' }}>{clubCoins}</div>
-              <div className="small">Club Coins</div>
-            </div>
-          </div>
           {activeTab === 'calendar' && (
             <div>
-              <h5 className="mb-3">Calendar</h5>
-              <div className="d-flex flex-column flex-md-row gap-4 align-items-start">
-                <Calendar
-                  onChange={setDate}
-                  value={date}
-                  tileContent={({ date }) => {
-                    const hasBooking = bookings.some(b => b.date === formatDate(date));
-                    return hasBooking ? <span className="badge bg-success ms-1">•</span> : null;
-                  }}
-                />
-                <div className="flex-grow-1">
-                  <h6 className="mt-4 mt-md-0">Your Bookings for {selectedDate}</h6>
+              <h5 className="mb-3" style={{ color: '#ffc107', fontSize: '1.5rem' }}>Calendar & Booking History</h5>
+              
+              {/* Real-time Status Indicator */}
+              <div className="mb-3" style={{
+                background: 'rgba(76, 175, 80, 0.1)',
+                border: '1px solid rgba(76, 175, 80, 0.3)',
+                borderRadius: '8px',
+                padding: '8px 12px',
+                fontSize: '0.85rem',
+                color: '#4CAF50',
+                display: 'flex',
+                alignItems: 'center',
+                gap: '6px'
+              }}>
+                <span style={{
+                  width: '6px',
+                  height: '6px',
+                  borderRadius: '50%',
+                  backgroundColor: '#4CAF50',
+                  animation: 'pulse 2s infinite'
+                }}></span>
+                <span>🟢 Live booking updates</span>
+                <span style={{marginLeft: 'auto', fontSize: '0.75rem', opacity: 0.8}}>
+                  {bookings.length} total bookings
+                </span>
+              </div>
+              
+              {/* Compact Calendar Legend */}
+              <div className="mb-3" style={{ 
+                background: 'rgba(30, 30, 30, 0.8)', 
+                padding: '10px 15px', 
+                borderRadius: '10px', 
+                border: '1px solid rgba(255, 193, 7, 0.2)' 
+              }}>
+                <div className="d-flex align-items-center justify-content-between flex-wrap gap-2">
+                  <div className="d-flex align-items-center gap-3">
+                    <div className="d-flex align-items-center gap-1">
+                      <div style={{ width: '12px', height: '12px', background: '#4CAF50', borderRadius: '50%' }}></div>
+                      <span style={{ color: 'rgba(255, 255, 255, 0.8)', fontSize: '0.8rem' }}>Future</span>
+                    </div>
+                    <div className="d-flex align-items-center gap-1">
+                      <div style={{ width: '12px', height: '12px', background: '#FF9800', borderRadius: '50%' }}></div>
+                      <span style={{ color: 'rgba(255, 255, 255, 0.8)', fontSize: '0.8rem' }}>Past</span>
+                    </div>
+                    <div className="d-flex align-items-center gap-1">
+                      <div style={{ width: '12px', height: '12px', background: '#ffc107', borderRadius: '4px' }}></div>
+                      <span style={{ color: 'rgba(255, 255, 255, 0.8)', fontSize: '0.8rem' }}>Selected</span>
+                    </div>
+                  </div>
+                  <span style={{ color: 'rgba(255, 255, 255, 0.6)', fontSize: '0.75rem' }}>
+                    💡 Click dates with bookings to view history
+                  </span>
+                </div>
+              </div>
+
+              <div className="d-flex flex-column flex-lg-row gap-3 align-items-start">
+                <div style={{ flex: '0 0 auto' }}>
+                  <CustomCalendar
+                    selectedDate={date}
+                    onDateSelect={setDate}
+                    bookingsData={bookings}
+                  />
+                </div>
+                <div className="flex-grow-1" style={{ 
+                  background: 'rgba(40, 40, 40, 0.8)', 
+                  padding: '15px', 
+                  borderRadius: '12px', 
+                  border: '1px solid rgba(255, 193, 7, 0.2)',
+                  minHeight: '300px'
+                }}>
+                  <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '12px' }}>
+                    <h6 className="mt-0" style={{ color: '#ffc107', fontSize: '1.1rem', margin: 0 }}>
+                      Bookings for {selectedDate}
+                    </h6>
+                    {new Date(selectedDate) < new Date().setHours(0, 0, 0, 0) && (
+                      <span style={{
+                        background: 'rgba(255, 152, 0, 0.2)',
+                        color: '#FF9800',
+                        padding: '3px 6px',
+                        borderRadius: '10px',
+                        fontSize: '0.7rem',
+                        fontWeight: 'bold',
+                        border: '1px solid rgba(255, 152, 0, 0.4)'
+                      }}>
+                        📅 Past
+                      </span>
+                    )}
+                  </div>
                   {bookingsForDate.length === 0 ? (
-                    <p className="text-muted">No bookings for this day.</p>
+                    <p style={{ color: 'rgba(255, 255, 255, 0.6)', fontSize: '0.9rem' }}>No bookings for this day.</p>
                   ) : (
-                    <ul className="list-group">
-                      {bookingsForDate.map((b, i) => (
-                        <li key={i} className="list-group-item d-flex justify-content-between align-items-center">
-                          <span className="text-capitalize">{b.game}</span>
-                          <span>{b.time}</span>
-                          <span className={`badge ms-2 ${b.status === 'Cancelled' ? 'bg-danger' : b.status === 'Pending' ? 'bg-warning text-dark' : 'bg-success'}`}>{b.status || 'Confirmed'}</span>
-                        </li>
-                      ))}
-                    </ul>
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
+                      {bookingsForDate.map((b, i) => {
+                        const isPastBooking = new Date(selectedDate) < new Date().setHours(0, 0, 0, 0);
+                        return (
+                          <div key={i} style={{
+                            background: isPastBooking ? 'rgba(60, 60, 60, 0.6)' : 'rgba(50, 50, 50, 0.8)',
+                            border: `1px solid ${isPastBooking ? 'rgba(255, 152, 0, 0.3)' : 'rgba(255, 193, 7, 0.2)'}`,
+                            borderRadius: '10px',
+                            padding: '12px',
+                            display: 'flex',
+                            justifyContent: 'space-between',
+                            alignItems: 'center',
+                            borderLeft: `3px solid ${isPastBooking ? '#FF9800' : '#ffc107'}`,
+                            opacity: isPastBooking ? 0.8 : 1
+                          }}>
+                            <div style={{ display: 'flex', flexDirection: 'column', gap: '3px' }}>
+                              <span style={{ color: 'white', fontWeight: '600', fontSize: '0.9rem' }}>
+                                {resolveGameName(b.game, games)}
+                              </span>
+                              <span style={{ color: 'rgba(255, 255, 255, 0.7)', fontSize: '0.8rem' }}>
+                                🕒 {b.time} 
+                                {b.duration && ` • ${b.duration} mins`}
+                                {isPastBooking && ' • Completed'}
+                              </span>
+                            </div>
+                            <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: '4px' }}>
+                              <span style={{
+                                padding: '4px 8px',
+                                borderRadius: '12px',
+                                fontSize: '0.75rem',
+                                fontWeight: 'bold',
+                                background: b.status === 'Cancelled' ? 'rgba(244, 67, 54, 0.2)' : 
+                                           b.status === 'Pending' ? 'rgba(255, 193, 7, 0.2)' : 
+                                           isPastBooking ? 'rgba(76, 175, 80, 0.2)' :
+                                           'rgba(76, 175, 80, 0.2)',
+                                color: b.status === 'Cancelled' ? '#f44336' : 
+                                      b.status === 'Pending' ? '#ffc107' : 
+                                      '#4CAF50',
+                                border: `1px solid ${b.status === 'Cancelled' ? 'rgba(244, 67, 54, 0.4)' : 
+                                                     b.status === 'Pending' ? 'rgba(255, 193, 7, 0.4)' : 
+                                                     'rgba(76, 175, 80, 0.4)'}`
+                              }}>
+                                {isPastBooking && b.status === 'Confirmed' ? 'Completed' : (b.status || 'Confirmed')}
+                              </span>
+                              {b.price && (
+                                <span style={{ color: '#ffc107', fontWeight: 'bold', fontSize: '0.8rem' }}>
+                                  ₹{b.price}
+                                </span>
+                              )}
+                            </div>
+                          </div>
+                        );
+                      })}
+                    </div>
                   )}
                 </div>
               </div>
@@ -336,7 +582,7 @@ export default function UserPanel() {
                         {filteredBookings.map((booking, i) => (
                           <tr key={i}>
                             <td>{booking.date}</td>
-                            <td className="text-capitalize">{booking.game}</td>
+                            <td className="text-capitalize">{resolveGameName(booking.game, games)}</td>
                             <td>{booking.time}</td>
                             <td>
                               <span className={`badge ${booking.status === 'Cancelled' ? 'bg-danger' : booking.status === 'Pending' ? 'bg-warning text-dark' : 'bg-success'}`}>
@@ -351,6 +597,14 @@ export default function UserPanel() {
                                   aria-label="View details"
                                 >
                                   View
+                                </button>
+                                <button
+                                  className="btn btn-outline-secondary"
+                                  onClick={() => handleViewStatusHistory(booking)}
+                                  aria-label="View status history"
+                                  title="View Status History"
+                                >
+                                  📋
                                 </button>
                                 <button
                                   className="btn btn-outline-primary"
@@ -389,7 +643,7 @@ export default function UserPanel() {
                 <button type="button" className="btn-close" aria-label="Close" onClick={() => setShowDetailsModal(false)}></button>
               </div>
               <div className="modal-body">
-                <p><strong>Game:</strong> <span className="text-capitalize">{detailsBooking.game}</span></p>
+                <p><strong>Game:</strong> <span className="text-capitalize">{resolveGameName(detailsBooking.game, games)}</span></p>
                 <p><strong>Date:</strong> {detailsBooking.date}</p>
                 <p><strong>Time:</strong> {detailsBooking.time}</p>
                 <p><strong>Status:</strong> <span className={`badge ${detailsBooking.status === 'Cancelled' ? 'bg-danger' : detailsBooking.status === 'Pending' ? 'bg-warning text-dark' : 'bg-success'}`}>{detailsBooking.status || 'Confirmed'}</span></p>
@@ -397,6 +651,7 @@ export default function UserPanel() {
               </div>
               <div className="modal-footer">
                 <button className="btn btn-secondary" onClick={() => setShowDetailsModal(false)}>Close</button>
+                <button className="btn btn-info" onClick={() => { setShowDetailsModal(false); handleViewStatusHistory(detailsBooking); }}>Status History</button>
                 <button className="btn btn-success" onClick={() => handleRebook(detailsBooking)} disabled={detailsBooking.status === 'Cancelled'}>Rebook</button>
                 <button className="btn btn-primary" onClick={() => { setShowDetailsModal(false); openEditModal(bookings.findIndex(b => b.id === detailsBooking.id)); }} disabled={detailsBooking.status === 'Cancelled'}>Edit</button>
                 <button className="btn btn-danger" onClick={() => { handleCancelBooking(detailsBooking.id); setShowDetailsModal(false); }} disabled={detailsBooking.status === 'Cancelled'}>Cancel</button>
@@ -468,6 +723,15 @@ export default function UserPanel() {
           onClose={() => setShowEditModal(false)}
         />
       )}
+
+      {/* Status History Modal */}
+      {statusHistoryModal.show && (
+        <BookingStatusHistory
+          statusHistory={statusHistoryModal.booking?.statusHistory || []}
+          onClose={() => setStatusHistoryModal({ show: false, booking: null })}
+        />
+      )}
+      </div>
     </div>
   );
-} 
+}

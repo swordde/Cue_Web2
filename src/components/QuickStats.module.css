@@ -1,0 +1,123 @@
+/* QuickStats.module.css */
+
+.quickStats {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+  gap: 20px;
+  margin-bottom: 30px;
+}
+
+.statCard {
+  background: rgba(30, 30, 30, 0.8);
+  border: 1px solid rgba(255, 193, 7, 0.2);
+  border-radius: 15px;
+  padding: 20px;
+  cursor: pointer;
+  transition: all 0.3s ease;
+  position: relative;
+  overflow: hidden;
+  backdrop-filter: blur(10px);
+}
+
+.statCard:hover {
+  transform: translateY(-5px);
+  border-color: var(--stat-color, #ffc107);
+  box-shadow: 0 15px 40px rgba(0, 0, 0, 0.3);
+}
+
+.statCard.hovered {
+  border-color: var(--stat-color, #ffc107);
+  background: rgba(30, 30, 30, 0.95);
+}
+
+.statIcon {
+  font-size: 2.5rem;
+  margin-bottom: 15px;
+  text-align: center;
+  filter: drop-shadow(0 2px 4px rgba(0, 0, 0, 0.3));
+}
+
+.statContent {
+  text-align: center;
+  position: relative;
+  z-index: 2;
+}
+
+.statValue {
+  font-size: 2rem;
+  font-weight: bold;
+  color: var(--stat-color, #ffc107);
+  margin: 0 0 8px 0;
+  text-shadow: 0 2px 4px rgba(0, 0, 0, 0.3);
+}
+
+.statLabel {
+  color: rgba(255, 255, 255, 0.9);
+  font-size: 0.9rem;
+  font-weight: 500;
+  margin: 0;
+}
+
+.statDescription {
+  color: rgba(255, 255, 255, 0.6);
+  font-size: 0.75rem;
+  margin-top: 8px;
+  animation: fadeIn 0.3s ease;
+}
+
+.statAccent {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 4px;
+  height: 100%;
+  background: var(--stat-color, #ffc107);
+  opacity: 0;
+  transition: opacity 0.3s ease;
+}
+
+.statCard:hover .statAccent {
+  opacity: 1;
+}
+
+@keyframes fadeIn {
+  from {
+    opacity: 0;
+    transform: translateY(10px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+/* Responsive Design */
+@media (max-width: 768px) {
+  .quickStats {
+    grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+    gap: 15px;
+  }
+  
+  .statCard {
+    padding: 15px;
+  }
+  
+  .statIcon {
+    font-size: 2rem;
+    margin-bottom: 10px;
+  }
+  
+  .statValue {
+    font-size: 1.5rem;
+  }
+  
+  .statLabel {
+    font-size: 0.8rem;
+  }
+}
+
+@media (max-width: 480px) {
+  .quickStats {
+    grid-template-columns: 1fr 1fr;
+  }
+}

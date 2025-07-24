@@ -13,8 +13,12 @@ import Login from './pages/Login.jsx'
 import Dashboard from './pages/Dashboard.jsx'
 import BookGame from './pages/BookGame.jsx'
 import DeploymentTest from './pages/DeploymentTest.jsx'
-import ProtectedAdminRoute from './components/ProtectedAdminRoute';
+import EventSelector from './components/EventSelector.jsx'
+import BookingForm from './components/BookingForm.jsx'
+import FirebaseTest from './components/FirebaseTest.jsx'
+import ProtectedAdminRoute from './components/ProtectedAdminRoute'
 import 'bootstrap/dist/css/bootstrap.min.css'
+import { ToastProvider } from './contexts/ToastContext'
 
 // Error boundary component
 class ErrorBoundary extends React.Component {
@@ -53,25 +57,28 @@ class ErrorBoundary extends React.Component {
   }
 }
 
-// Initialize databases
-// (No more adminSettings.js dynamic import)
-
 createRoot(document.getElementById('root')).render(
   <StrictMode>
     <ErrorBoundary>
-      <HashRouter>
-        <Routes>
-          <Route path="/main" element={<MainPage />} />
-          <Route path="/" element={<Home />} />
-          <Route path="/book" element={<BookGame />} />
-          <Route path="/admin" element={<ProtectedAdminRoute><AdminPanel /></ProtectedAdminRoute>} />
-          <Route path="/user" element={<UserPanel />} />
-          <Route path="/test" element={<DeploymentTest />} />
-          <Route path="/login" element={<Login />} />
-          <Route path="/dashboard" element={<Dashboard />} />
-          {/* Add more routes here as needed */}
-        </Routes>
-      </HashRouter>
+      <ToastProvider>
+        <HashRouter>
+          <Routes>
+            <Route path="/main" element={<MainPage />} />
+            <Route path="/" element={<Home />} />
+            <Route path="/book" element={<BookGame />} />
+            <Route path="/party" element={<EventSelector />} />
+            <Route path="/booking-form" element={<BookingForm />} />
+            <Route path="/admin" element={<ProtectedAdminRoute><AdminPanel /></ProtectedAdminRoute>} />
+            <Route path="/user" element={<UserPanel />} />
+            <Route path="/test" element={<>
+              <DeploymentTest />
+              <FirebaseTest />
+            </>} />
+            <Route path="/login" element={<Login />} />
+            <Route path="/dashboard" element={<Dashboard />} />
+          </Routes>
+        </HashRouter>
+      </ToastProvider>
     </ErrorBoundary>
-  </StrictMode>,
+  </StrictMode>
 )

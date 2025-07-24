@@ -7,69 +7,204 @@ import {
   signInWithEmailAndPassword,
   createUserWithEmailAndPassword
 } from 'firebase/auth';
-  // Sign up with email and password
 
 // Initialize reCAPTCHA
 let recaptchaVerifier = null;
 
+// reCAPTCHA site key - you need to get this from Firebase Console
+// Go to Firebase Console → Authentication → Settings → Advanced → reCAPTCHA
+const RECAPTCHA_SITE_KEY = '6LcXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX'; // Replace with your actual site key
+
 export const firebaseAuth = {
   // Initialize reCAPTCHA
-  initRecaptcha(containerId) {
-    if (!window.recaptchaVerifier) {
-      window.recaptchaVerifier = new RecaptchaVerifier(auth, containerId, {
-        'size': 'invisible',
-        'callback': (response) => {
-          console.log('reCAPTCHA solved');
+  async initRecaptcha(containerId) {
+    try {
+      // Clear any existing reCAPTCHA first
+      if (window.recaptchaVerifier) {
+        try {
+          window.recaptchaVerifier.clear();
+        } catch (e) {
+          console.log('reCAPTCHA clear error:', e);
         }
+        delete window.recaptchaVerifier;
+      }
+      
+      // Also clear the global recaptchaVerifier
+      recaptchaVerifier = null;
+      
+      // Wait for container to be available
+      const container = document.getElementById(containerId);
+      if (!container) {
+        throw new Error(`reCAPTCHA container '${containerId}' not found`);
+      }
+      
+      // Check if there's already a reCAPTCHA in the container
+      const existingRecaptcha = container.querySelector('.grecaptcha-badge');
+      if (existingRecaptcha) {
+        // Remove existing reCAPTCHA elements
+        const recaptchaElements = container.querySelectorAll('[id^="recaptcha"]');
+        recaptchaElements.forEach(el => el.remove());
+      }
+      
+      // Create new reCAPTCHA without site key (uses Firebase default)
+      window.recaptchaVerifier = new RecaptchaVerifier(auth, containerId, {
+        'size': 'invisible'
       });
+      
+      recaptchaVerifier = window.recaptchaVerifier;
+      
+      // Render the reCAPTCHA
+      await recaptchaVerifier.render();
+      return recaptchaVerifier;
+    } catch (error) {
+      console.error('Error initializing reCAPTCHA:', error);
+      throw error;
     }
-    recaptchaVerifier = window.recaptchaVerifier;
   },
 
   // Send OTP
   async sendOTP(phoneNumber, containerId) {
     try {
-      this.initRecaptcha(containerId);
-      const confirmationResult = await signInWithPhoneNumber(auth, phoneNumber, recaptchaVerifier);
+      // Initialize and render reCAPTCHA
+      await this.initRecaptcha(containerId);
+      
+      // Ensure phone number is in correct format
+      let formattedPhone = phoneNumber;
+      if (!phoneNumber.startsWith('+')) {
+        formattedPhone = `+91${phoneNumber}`;
+      }
+      
+      // Wait a moment for reCAPTCHA to be ready
+      await new Promise(resolve => setTimeout(resolve, 1000));
+      
+      // Send OTP
+      const confirmationResult = await signInWithPhoneNumber(auth, formattedPhone, recaptchaVerifier);
       return confirmationResult;
     } catch (error) {
       console.error('Error sending OTP:', error);
+      
+      // Clear reCAPTCHA on error
+      if (window.recaptchaVerifier) {
+        try {
+          window.recaptchaVerifier.clear();
+        } catch (e) {
+          console.log('reCAPTCHA clear error:', e);
+        }
+        delete window.recaptchaVerifier;
+      }
+      recaptchaVerifier = null;
+      
+      // Provide specific error message
+      if (error.code === 'auth/invalid-app-credential') {
+        const customError = new Error('Phone authentication not configured. Please enable Phone Authentication in Firebase Console.');
+        customError.code = error.code;
+        throw customError;
+      }
+      
+      throw error;
+    }
+  },
+
+  // Reset reCAPTCHA and send new OTP (for retry)
+  async resendOTP(phoneNumber, containerId) {
+    try {
+      // Completely clear existing reCAPTCHA
+      if (window.recaptchaVerifier) {
+        try {
+          window.recaptchaVerifier.clear();
+        } catch (e) {
+          console.log('reCAPTCHA clear error:', e);
+        }
+        delete window.recaptchaVerifier;
+      }
+      recaptchaVerifier = null;
+      
+      // Wait a moment for cleanup
+      await new Promise(resolve => setTimeout(resolve, 200));
+      
+      // Create completely new reCAPTCHA and send OTP
+      await this.initRecaptcha(containerId);
+      
+      // Ensure phone number is in correct format
+      let formattedPhone = phoneNumber;
+      if (!phoneNumber.startsWith('+')) {
+        formattedPhone = `+91${phoneNumber}`;
+      }
+      
+      // Wait a moment for reCAPTCHA to be ready
+      await new Promise(resolve => setTimeout(resolve, 500));
+      
+      const confirmationResult = await signInWithPhoneNumber(auth, formattedPhone, recaptchaVerifier);
+      return confirmationResult;
+    } catch (error) {
+      console.error('Error resending OTP:', error);
+      
+      // Clear reCAPTCHA on error
+      if (window.recaptchaVerifier) {
+        try {
+          window.recaptchaVerifier.clear();
+        } catch (e) {
+          console.log('reCAPTCHA clear error:', e);
+        }
+        delete window.recaptchaVerifier;
+      }
+      recaptchaVerifier = null;
+      
       throw error;
     }
   },
 
   // Verify OTP and login
-  async verifyOTPAndLogin(confirmationResult, otp, mobile) {
+  async verifyOTPAndLogin(confirmationResult, otp, mobile, usernameFromParam) {
     try {
       const result = await confirmationResult.confirm(otp);
       if (result.user) {
-        // Create or update user in Firestore
-        // Accept username from login if provided (optional, fallback to default)
-        let username = '';
-        if (typeof window !== 'undefined') {
+        // Use the username from the parameter (most reliable for signup)
+        let username = usernameFromParam;
+        
+        // If no username provided, try to get from DOM input (fallback)
+        if (!username && typeof window !== 'undefined') {
           const usernameInput = document.getElementById('username');
-          if (usernameInput && usernameInput.value) {
+          if (usernameInput && usernameInput.value && usernameInput.value.trim()) {
             username = usernameInput.value.trim();
           }
         }
+        
+        // Check if user already exists
+        const existingUser = await userService.getUserByMobile(mobile);
+        
         const userData = {
           mobile,
-          name: username || `User ${mobile.slice(-4)}`,
-          // isAdmin is now only set via Firestore, not by mobile number
-          totalBookings: 0,
-          clubCoins: 0,
-          streak: 0,
+          // For existing users, preserve their existing name. For new users, use provided username
+          name: existingUser ? existingUser.name : (username && username.trim() ? username.trim() : `User ${mobile.slice(-4)}`),
+          totalBookings: existingUser?.totalBookings || 0,
+          clubCoins: existingUser?.clubCoins || 0,
+          streak: existingUser?.streak || 0,
           lastLogin: new Date().toISOString(),
-          isActive: true
+          isActive: existingUser ? existingUser.isActive : true
         };
-
-        await userService.createUser(userData);
-
-        // Store user info in localStorage for app state (no isAdmin)
+        
+        // Debug logging to verify username is being used correctly
+        console.log('Signup process:', {
+          usernameFromParam,
+          finalUsername: userData.name,
+          isNewUser: !existingUser,
+          mobile
+        });
+        
+        // Only create user if they don't already exist
+        if (!existingUser) {
+          console.log('Creating new user with data:', userData);
+          await userService.createUser(userData);
+        } else {
+          console.log('User already exists, preserving existing name:', existingUser.name);
+        }
+        
+        // Store user info in localStorage
         localStorage.setItem('isLoggedIn', 'true');
         localStorage.setItem('mobile', mobile);
-
-        // Always fetch latest user data from Firestore for admin status
+        
+        // Always fetch latest user data from Firestore
         const latestUser = await userService.getUserByMobile(mobile);
         return latestUser || userData;
       }

@@ -1,0 +1,478 @@
+/* EventSelector.module.css - Cue Club Cafe Theme */
+
+.eventSelector {
+  min-height: 100vh;
+  background: linear-gradient(135deg, #1a1a1a 0%, #2d2d2d 100%);
+  color: white;
+  position: relative;
+  overflow-x: hidden;
+}
+
+/* Header Section */
+.header {
+  background: rgba(30, 30, 30, 0.95);
+  backdrop-filter: blur(10px);
+  padding: 20px;
+  border-bottom: 1px solid rgba(255, 193, 7, 0.2);
+  position: sticky;
+  top: 0;
+  z-index: 100;
+}
+
+.backButton {
+  background: transparent;
+  border: 2px solid rgba(255, 193, 7, 0.5);
+  color: #ffc107;
+  padding: 10px 20px;
+  border-radius: 8px;
+  cursor: pointer;
+  font-weight: 500;
+  transition: all 0.3s ease;
+  margin-bottom: 15px;
+}
+
+.backButton:hover {
+  background: rgba(255, 193, 7, 0.1);
+  border-color: #ffc107;
+  transform: translateX(-5px);
+}
+
+.headerContent {
+  text-align: center;
+}
+
+.pageTitle {
+  font-size: 2.5rem;
+  color: #ffc107;
+  margin: 0;
+  font-weight: bold;
+}
+
+.pageSubtitle {
+  color: rgba(255, 255, 255, 0.8);
+  font-size: 1.1rem;
+  margin: 10px 0 0 0;
+}
+
+/* Main Content */
+.eventSelectorContent {
+  padding: 40px 20px;
+  max-width: 1200px;
+  margin: 0 auto;
+  position: relative;
+}
+
+.sectionHeader {
+  text-align: center;
+  margin-bottom: 40px;
+}
+
+.sectionTitle {
+  font-size: 2rem;
+  color: #ffc107;
+  margin: 0 0 10px 0;
+  font-weight: bold;
+}
+
+.sectionSubtitle {
+  color: rgba(255, 255, 255, 0.7);
+  font-size: 1rem;
+  margin: 0;
+}
+
+/* Category Filter */
+.categoryFilter {
+  display: flex;
+  justify-content: center;
+  flex-wrap: wrap;
+  gap: 10px;
+  margin-bottom: 40px;
+}
+
+.categoryBtn {
+  padding: 12px 20px;
+  border-radius: 25px;
+  border: 2px solid rgba(255, 193, 7, 0.3);
+  background: transparent;
+  color: rgba(255, 255, 255, 0.8);
+  cursor: pointer;
+  transition: all 0.3s ease;
+  font-weight: 500;
+}
+
+.categoryBtn:hover {
+  border-color: rgba(255, 193, 7, 0.6);
+  color: #ffc107;
+}
+
+.categoryBtn.active {
+  background: linear-gradient(135deg, #ffc107, #ff9800);
+  border-color: #ffc107;
+  color: #000;
+  box-shadow: 0 4px 15px rgba(255, 193, 7, 0.3);
+}
+
+/* Events Grid */
+.eventsGrid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+  gap: 25px;
+  margin-bottom: 60px;
+}
+
+.eventCard {
+  background: linear-gradient(135deg, rgba(50, 50, 50, 0.9), rgba(30, 30, 30, 0.9));
+  border-radius: 20px;
+  padding: 30px;
+  cursor: pointer;
+  transition: all 0.3s ease;
+  border: 2px solid rgba(255, 193, 7, 0.2);
+  position: relative;
+  overflow: hidden;
+  backdrop-filter: blur(10px);
+}
+
+.eventCard:hover {
+  transform: translateY(-10px);
+  border-color: #ffc107;
+  box-shadow: 0 20px 40px rgba(255, 193, 7, 0.2);
+}
+
+.cardGlow {
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: radial-gradient(circle at center, rgba(255, 193, 7, 0.1) 0%, transparent 70%);
+  opacity: 0;
+  transition: opacity 0.3s ease;
+}
+
+.eventCard:hover .cardGlow {
+  opacity: 1;
+}
+
+.eventIcon {
+  font-size: 4rem;
+  text-align: center;
+  margin-bottom: 20px;
+  display: block;
+}
+
+.eventName {
+  color: #ffc107;
+  font-size: 1.4rem;
+  font-weight: bold;
+  margin: 0 0 15px 0;
+  text-align: center;
+}
+
+.eventDescription {
+  color: rgba(255, 255, 255, 0.8);
+  text-align: center;
+  line-height: 1.6;
+  margin: 0 0 25px 0;
+}
+
+.selectBtn {
+  width: 100%;
+  padding: 12px;
+  background: linear-gradient(135deg, #ffc107, #ff9800);
+  border: none;
+  border-radius: 10px;
+  color: #000;
+  font-weight: bold;
+  cursor: pointer;
+  transition: all 0.3s ease;
+}
+
+.selectBtn:hover {
+  background: linear-gradient(135deg, #ffcd38, #ffa726);
+  transform: translateY(-2px);
+  box-shadow: 0 8px 20px rgba(255, 193, 7, 0.4);
+}
+
+/* Gift Section */
+.giftSection {
+  background: rgba(30, 30, 30, 0.6);
+  border-radius: 20px;
+  padding: 40px;
+  border: 1px solid rgba(255, 193, 7, 0.2);
+  backdrop-filter: blur(10px);
+}
+
+.giftSectionHeader {
+  text-align: center;
+  margin-bottom: 30px;
+}
+
+.giftSectionTitle {
+  color: #ffc107;
+  font-size: 1.8rem;
+  font-weight: bold;
+  margin: 0 0 10px 0;
+}
+
+.giftSectionSubtitle {
+  color: rgba(255, 255, 255, 0.7);
+  margin: 0;
+}
+
+.giftPreview {
+  position: relative;
+}
+
+.giftPreviewCards {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+  gap: 20px;
+  margin-bottom: 30px;
+}
+
+.giftPreviewCard {
+  background: linear-gradient(135deg, rgba(60, 60, 60, 0.8), rgba(40, 40, 40, 0.8));
+  border-radius: 15px;
+  padding: 25px;
+  cursor: pointer;
+  transition: all 0.3s ease;
+  border: 2px solid rgba(255, 193, 7, 0.2);
+  position: relative;
+  overflow: hidden;
+  text-align: center;
+}
+
+.giftPreviewCard:hover {
+  border-color: rgba(255, 193, 7, 0.5);
+  transform: translateY(-5px);
+}
+
+.giftPreviewCard.selected {
+  border-color: #ffc107;
+  background: linear-gradient(135deg, rgba(255, 193, 7, 0.2), rgba(255, 152, 0, 0.2));
+  box-shadow: 0 10px 30px rgba(255, 193, 7, 0.3);
+}
+
+.giftCardGlow {
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: radial-gradient(circle at center, rgba(255, 193, 7, 0.1) 0%, transparent 70%);
+  opacity: 0;
+  transition: opacity 0.3s ease;
+}
+
+.giftPreviewCard:hover .giftCardGlow,
+.giftPreviewCard.selected .giftCardGlow {
+  opacity: 1;
+}
+
+.giftPreviewIcon {
+  font-size: 3rem;
+  margin-bottom: 15px;
+}
+
+.giftName {
+  color: #ffc107;
+  font-size: 1.2rem;
+  font-weight: bold;
+  margin: 0 0 10px 0;
+}
+
+.giftDescription {
+  color: rgba(255, 255, 255, 0.8);
+  margin: 0 0 15px 0;
+  font-size: 0.9rem;
+}
+
+.giftPrice {
+  color: #4CAF50;
+  font-weight: bold;
+  font-size: 1.1rem;
+  display: block;
+  margin-bottom: 10px;
+}
+
+.giftSelectionIndicator {
+  color: rgba(255, 255, 255, 0.6);
+  font-size: 0.8rem;
+}
+
+.giftPreviewCard.selected .giftSelectionIndicator {
+  color: #ffc107;
+  font-weight: bold;
+}
+
+/* Selected Gifts Summary */
+.selectedGiftsSummary {
+  background: rgba(255, 193, 7, 0.1);
+  border-radius: 15px;
+  padding: 25px;
+  margin-bottom: 25px;
+  border: 1px solid rgba(255, 193, 7, 0.3);
+}
+
+.summaryContent {
+  text-align: center;
+}
+
+.summaryTitle {
+  color: #ffc107;
+  font-size: 1.3rem;
+  font-weight: bold;
+  margin: 0 0 15px 0;
+}
+
+.selectedList {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: 10px;
+  margin-bottom: 15px;
+}
+
+.selectedGiftTag {
+  background: rgba(255, 193, 7, 0.2);
+  color: #ffc107;
+  padding: 8px 15px;
+  border-radius: 20px;
+  font-size: 0.9rem;
+  border: 1px solid rgba(255, 193, 7, 0.4);
+}
+
+.totalPrice {
+  color: #4CAF50;
+  font-size: 1.2rem;
+}
+
+/* Gift Section Action */
+.giftSectionAction {
+  text-align: center;
+}
+
+.exploreGiftsBtn {
+  background: linear-gradient(135deg, #4CAF50, #45a049);
+  border: none;
+  padding: 15px 40px;
+  border-radius: 25px;
+  color: white;
+  font-weight: bold;
+  font-size: 1.1rem;
+  cursor: pointer;
+  transition: all 0.3s ease;
+  box-shadow: 0 4px 15px rgba(76, 175, 80, 0.3);
+}
+
+.exploreGiftsBtn:hover {
+  background: linear-gradient(135deg, #45a049, #3d8b40);
+  transform: translateY(-3px);
+  box-shadow: 0 8px 25px rgba(76, 175, 80, 0.4);
+}
+
+/* Background Effects */
+.backgroundEffects {
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  pointer-events: none;
+  overflow: hidden;
+}
+
+.floatingOrb {
+  position: absolute;
+  width: 200px;
+  height: 200px;
+  border-radius: 50%;
+  background: radial-gradient(circle, rgba(255, 193, 7, 0.1) 0%, rgba(255, 193, 7, 0.05) 50%, transparent 100%);
+  animation: float 6s ease-in-out infinite;
+}
+
+.floatingOrb:nth-child(1) {
+  top: 10%;
+  left: 10%;
+  animation-delay: 0s;
+}
+
+.floatingOrb:nth-child(2) {
+  top: 50%;
+  right: 10%;
+  animation-delay: 2s;
+}
+
+.floatingOrb:nth-child(3) {
+  bottom: 10%;
+  left: 50%;
+  animation-delay: 4s;
+}
+
+@keyframes float {
+  0%, 100% {
+    transform: translateY(0px) scale(1);
+  }
+  50% {
+    transform: translateY(-20px) scale(1.05);
+  }
+}
+
+/* Mobile Responsive */
+@media (max-width: 768px) {
+  .header {
+    padding: 15px;
+  }
+  
+  .pageTitle {
+    font-size: 2rem;
+  }
+  
+  .eventSelectorContent {
+    padding: 30px 15px;
+  }
+  
+  .eventsGrid {
+    grid-template-columns: 1fr;
+    gap: 20px;
+  }
+  
+  .eventCard {
+    padding: 25px;
+  }
+  
+  .giftSection {
+    padding: 25px 20px;
+  }
+  
+  .giftPreviewCards {
+    grid-template-columns: 1fr;
+  }
+  
+  .categoryFilter {
+    gap: 8px;
+  }
+  
+  .categoryBtn {
+    padding: 8px 16px;
+    font-size: 0.9rem;
+  }
+}
+
+@media (max-width: 480px) {
+  .pageTitle {
+    font-size: 1.5rem;
+  }
+  
+  .eventIcon {
+    font-size: 3rem;
+  }
+  
+  .eventName {
+    font-size: 1.2rem;
+  }
+  
+  .giftSection {
+    padding: 20px 15px;
+  }
+}

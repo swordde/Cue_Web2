@@ -1,0 +1,962 @@
+/* Dashboard Styles with Modern Animations and 3D Effects */
+
+.dashboard {
+  min-height: 100vh;
+  background: linear-gradient(135deg, #0f0f0f 0%, #1a1a1a 50%, #0f0f0f 100%);
+  font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+  color: white;
+  position: relative;
+  overflow-x: hidden;
+}
+
+/* Hero Section - Reduced Size */
+.heroSection {
+  height: 60vh; /* Reduced from 100vh */
+  position: relative;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  text-align: center;
+  opacity: 0;
+  transform: translateY(30px);
+  transition: all 1s ease-out;
+}
+
+.fadeIn {
+  opacity: 1;
+  transform: translateY(0);
+}
+
+.heroBackground {
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: 
+    radial-gradient(circle at 20% 50%, rgba(255, 193, 7, 0.08) 0%, transparent 50%),
+    radial-gradient(circle at 80% 20%, rgba(255, 193, 7, 0.06) 0%, transparent 50%),
+    radial-gradient(circle at 40% 80%, rgba(255, 193, 7, 0.04) 0%, transparent 50%);
+  animation: gradientShift 8s ease-in-out infinite;
+}
+
+.heroOverlay {
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: rgba(0, 0, 0, 0.3);
+  backdrop-filter: blur(1px);
+}
+
+.heroContent {
+  position: relative;
+  z-index: 2;
+  max-width: 700px; /* Reduced from 800px */
+  padding: 0 20px;
+}
+
+.heroTitle {
+  font-size: 2.8rem; /* Reduced from 3.5rem */
+  font-weight: 700;
+  margin-bottom: 15px; /* Reduced from 20px */
+  background: linear-gradient(135deg, #ffc107 0%, #ffbf00 50%, #fff 100%);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+  animation: textGlow 3s ease-in-out infinite;
+}
+
+.highlight {
+  color: #ffc107;
+  text-shadow: 0 0 10px rgba(255, 193, 7, 0.3);
+}
+
+.heroSubtitle {
+  font-size: 1.1rem; /* Reduced from 1.3rem */
+  color: rgba(255, 255, 255, 0.9);
+  margin-bottom: 30px; /* Reduced from 40px */
+  animation: fadeInUp 1s ease-out 0.5s both;
+}
+
+/* User Info Card in Hero */
+.userInfoCard {
+  position: fixed;
+  top: 18px;
+  right: 32px;
+  left: auto;
+  transform: none;
+  z-index: 1002;
+  display: flex;
+  align-items: center;
+  background: none;
+  border: none;
+  box-shadow: none;
+  padding: 0;
+  margin: 0;
+  max-width: none;
+  min-height: 0;
+}
+
+.avatarCircle {
+  width: 48px;
+  height: 48px;
+  border-radius: 50%;
+  background: linear-gradient(135deg, #ffc107 0%, #ffb300 100%);
+  color: black;
+  font-weight: bold;
+  font-size: 1.3rem;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  box-shadow: 0 2px 8px 0 rgba(255,193,7,0.12);
+  cursor: pointer;
+  transition: box-shadow 0.2s, transform 0.2s;
+}
+
+.avatarCircle:hover {
+  box-shadow: 0 4px 16px 0 rgba(255,193,7,0.22);
+  transform: scale(1.08);
+}
+
+.userInfo, .logoutButton {
+  display: none !important;
+}
+
+@media (max-width: 768px) {
+  .userInfoCard {
+    right: 10px;
+    top: 10px;
+    transform: none;
+    max-width: none;
+    padding: 0;
+  }
+  .avatarCircle {
+    width: 40px;
+    height: 40px;
+    font-size: 1.1rem;
+  }
+}
+
+/* Admin Banner */
+.adminBanner {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  background: rgba(255, 193, 7, 0.1);
+  border: 1px solid rgba(255, 193, 7, 0.3);
+  border-radius: 15px;
+  padding: 15px 25px;
+  margin: 20px;
+  backdrop-filter: blur(10px);
+  animation: fadeInUp 1s ease-out 1.2s both;
+}
+
+.adminText {
+  font-weight: bold;
+  color: #ffc107;
+}
+
+.adminButton {
+  background: #ffc107;
+  color: black;
+  padding: 10px 20px;
+  border-radius: 8px;
+  text-decoration: none;
+  font-weight: bold;
+  transition: all 0.3s ease;
+}
+
+.adminButton:hover {
+  background: #ffb300;
+  transform: translateY(-2px);
+  box-shadow: 0 5px 15px rgba(255, 193, 7, 0.3);
+}
+
+/* Floating Elements */
+.floatingElements {
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  pointer-events: none;
+}
+
+.floatingBubble {
+  position: absolute;
+  width: 200px;
+  height: 200px;
+  border-radius: 50%;
+  background: radial-gradient(circle, rgba(255, 193, 7, 0.1) 0%, transparent 70%);
+  animation: float 6s ease-in-out infinite;
+}
+
+.floatingBubble:nth-child(1) {
+  top: 20%;
+  left: 10%;
+  animation-delay: 0s;
+}
+
+.floatingBubble:nth-child(2) {
+  top: 60%;
+  right: 15%;
+  animation-delay: 2s;
+}
+
+.floatingBubble:nth-child(3) {
+  bottom: 20%;
+  left: 50%;
+  animation-delay: 4s;
+}
+
+/* Enhanced Ads Banner - Increased Size and Slideable */
+.adsBanner {
+  padding: 0;
+  margin: 60px 20px; /* Increased margin */
+  border-radius: 25px;
+  background: linear-gradient(135deg, #ffc107 0%, #ffbf00 50%, #ffa000 100%);
+  box-shadow: 
+    0 15px 35px rgba(255, 193, 7, 0.4),
+    inset 0 1px 0 rgba(255, 255, 255, 0.2);
+  animation: slideInFromLeft 1s ease-out 1.5s both;
+  position: relative;
+  overflow: hidden;
+  min-height: 120px; /* Increased height */
+}
+
+.adsContainer {
+  display: flex;
+  align-items: center;
+  gap: 20px;
+  padding: 20px;
+  position: relative;
+}
+
+.adsPrevButton, .adsNextButton {
+  background: rgba(0, 0, 0, 0.3);
+  border: 2px solid rgba(255, 255, 255, 0.3);
+  color: white;
+  font-size: 1.5rem;
+  width: 45px;
+  height: 45px;
+  border-radius: 50%;
+  cursor: pointer;
+  transition: all 0.3s ease;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  backdrop-filter: blur(10px);
+}
+
+.adsPrevButton:hover, .adsNextButton:hover {
+  background: rgba(0, 0, 0, 0.5);
+  border-color: rgba(255, 255, 255, 0.6);
+  transform: scale(1.1);
+}
+
+.adsSlider {
+  flex: 1;
+  position: relative;
+  padding: 20px;
+  border-radius: 15px;
+  background: rgba(0, 0, 0, 0.2);
+  backdrop-filter: blur(10px);
+  border: 1px solid rgba(255, 255, 255, 0.2);
+}
+
+.adsContent {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 20px;
+  position: relative;
+  z-index: 2;
+}
+
+.adsGlow {
+  position: absolute;
+  top: -20px;
+  left: -20px;
+  right: -20px;
+  bottom: -20px;
+  background: radial-gradient(circle, rgba(255, 193, 7, 0.1) 0%, transparent 70%);
+  animation: adsGlowPulse 3s ease-in-out infinite;
+  border-radius: 20px;
+}
+
+.adsText {
+  font-size: 1.2rem; /* Increased font size */
+  color: white;
+  flex: 1;
+  font-weight: 600;
+  text-shadow: 0 2px 4px rgba(0, 0, 0, 0.3);
+  line-height: 1.4;
+}
+
+.adsButton {
+  padding: 15px 30px; /* Increased padding */
+  background: linear-gradient(135deg, rgba(0, 0, 0, 0.8) 0%, rgba(0, 0, 0, 0.9) 100%);
+  color: #ffc107;
+  border: 2px solid #ffc107;
+  border-radius: 25px;
+  font-weight: bold;
+  font-size: 1rem;
+  cursor: pointer;
+  transition: all 0.3s ease;
+  box-shadow: 0 4px 15px rgba(0, 0, 0, 0.3);
+  backdrop-filter: blur(10px);
+}
+
+.adsButton:hover {
+  background: #ffc107;
+  color: black;
+  transform: translateY(-2px);
+  box-shadow: 0 6px 20px rgba(255, 193, 7, 0.15);
+}
+
+.adsIndicators {
+  display: flex;
+  justify-content: center;
+  gap: 10px;
+  padding: 15px 0;
+  position: absolute;
+  bottom: 10px;
+  left: 50%;
+  transform: translateX(-50%);
+}
+
+.adsIndicator {
+  width: 12px;
+  height: 12px;
+  border-radius: 50%;
+  border: 2px solid rgba(255, 255, 255, 0.5);
+  background: transparent;
+  cursor: pointer;
+  transition: all 0.3s ease;
+}
+
+.adsIndicator.active {
+  background: white;
+  border-color: white;
+  box-shadow: 0 0 5px rgba(255, 255, 255, 0.4);
+}
+
+.adsIndicator:hover {
+  border-color: white;
+  transform: scale(1.2);
+}
+
+/* Navigation Section */
+.navigationSection {
+  padding: 80px 20px;
+  max-width: 1200px;
+  margin: 0 auto;
+}
+
+.sectionTitle {
+  text-align: center;
+  margin-bottom: 60px;
+  animation: fadeInUp 1s ease-out 2s both;
+}
+
+.sectionTitle h2 {
+  font-size: 2.5rem;
+  color: white;
+  margin-bottom: 10px;
+}
+
+.sectionTitle p {
+  font-size: 1.1rem;
+  color: rgba(255, 255, 255, 0.7);
+}
+
+/* Cards with Enhanced Yellow Theme */
+.navCard {
+  position: relative;
+  background: rgba(255, 255, 255, 0.03);
+  border: 2px solid rgba(255, 193, 7, 0.3);
+  border-radius: 20px;
+  padding: 30px;
+  cursor: pointer;
+  transition: all 0.4s cubic-bezier(0.4, 0, 0.2, 1);
+  backdrop-filter: blur(15px);
+  overflow: hidden;
+  animation: fadeInUp 1s ease-out calc(2.5s + var(--card-delay, 0s)) both;
+}
+
+.card0 { --card-delay: 0s; }
+.card1 { --card-delay: 0.2s; }
+.card2 { --card-delay: 0.4s; }
+.card3 { --card-delay: 0.6s; }
+.card4 { --card-delay: 0.8s; }
+
+.navCard:hover {
+  transform: translateY(-15px) scale(1.03);
+  border-color: #ffc107;
+  box-shadow: 
+    0 25px 50px rgba(0, 0, 0, 0.4),
+    0 0 20px rgba(255, 193, 7, 0.15),
+    inset 0 1px 0 rgba(255, 193, 7, 0.1);
+  background: rgba(255, 193, 7, 0.03);
+}
+
+.cardGlow {
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: 
+    radial-gradient(circle at 50% 50%, rgba(255, 193, 7, 0.06) 0%, transparent 70%),
+    linear-gradient(135deg, rgba(255, 193, 7, 0.04) 0%, transparent 100%);
+  opacity: 0;
+  transition: opacity 0.4s ease;
+}
+
+.navCard:hover .cardGlow {
+  opacity: 1;
+}
+
+.cardContent {
+  position: relative;
+  z-index: 2;
+}
+
+.cardIcon {
+  font-size: 3rem;
+  margin-bottom: 20px;
+  display: block;
+  filter: drop-shadow(0 0 5px rgba(255, 193, 7, 0.2));
+}
+
+.cardTitle {
+  font-size: 1.8rem;
+  color: #ffc107;
+  margin-bottom: 15px;
+  font-weight: 700;
+  text-shadow: 0 0 8px rgba(255, 193, 7, 0.15);
+}
+
+.cardDescription {
+  font-size: 1rem;
+  color: rgba(255, 255, 255, 0.9);
+  margin-bottom: 20px;
+  line-height: 1.5;
+}
+
+.cardFeatures {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.cardFeatures span {
+  font-size: 0.9rem;
+  color: rgba(255, 255, 255, 0.8);
+  position: relative;
+  padding-left: 15px;
+}
+
+.cardFeatures span::before {
+  content: "•";
+  position: absolute;
+  left: 0;
+  color: #ffc107;
+  font-weight: bold;
+}
+
+.cardArrow {
+  position: absolute;
+  top: 30px;
+  right: 30px;
+  font-size: 1.8rem;
+  color: #ffc107;
+  transition: all 0.3s ease;
+  text-shadow: 0 0 5px rgba(255, 193, 7, 0.2);
+}
+
+.navCard:hover .cardArrow {
+  transform: translateX(8px) scale(1.2);
+  text-shadow: 0 0 10px rgba(255, 193, 7, 0.3);
+}
+
+/* Cards Grid */
+.cardsGrid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+  gap: 30px;
+  margin-top: 50px;
+}
+
+/* Background Animation */
+.backgroundAnimation {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  pointer-events: none;
+  z-index: -1;
+}
+
+.gradientOrb {
+  position: absolute;
+  border-radius: 50%;
+  filter: blur(100px);
+  animation: orbFloat 15s ease-in-out infinite;
+}
+
+.gradientOrb:nth-child(1) {
+  width: 400px;
+  height: 400px;
+  background: radial-gradient(circle, rgba(255, 193, 7, 0.1) 0%, transparent 70%);
+  top: 20%;
+  left: 10%;
+  animation-delay: 0s;
+}
+
+.gradientOrb:nth-child(2) {
+  width: 300px;
+  height: 300px;
+  background: radial-gradient(circle, rgba(255, 191, 0, 0.08) 0%, transparent 70%);
+  top: 60%;
+  right: 20%;
+  animation-delay: 5s;
+}
+
+.gradientOrb:nth-child(3) {
+  width: 500px;
+  height: 500px;
+  background: radial-gradient(circle, rgba(255, 193, 7, 0.05) 0%, transparent 70%);
+  bottom: 10%;
+  left: 50%;
+  animation-delay: 10s;
+}
+
+/* Password Modal Styles */
+.modalOverlay {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: rgba(0, 0, 0, 0.8);
+  backdrop-filter: blur(10px);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 1000;
+  animation: fadeIn 0.3s ease-out;
+}
+
+.passwordModal {
+  background: rgba(26, 26, 26, 0.95);
+  backdrop-filter: blur(20px);
+  border: 1px solid rgba(255, 193, 7, 0.3);
+  border-radius: 20px;
+  padding: 0;
+  min-width: 400px;
+  max-width: 500px;
+  animation: slideUp 0.3s ease-out;
+  box-shadow: 
+    0 25px 50px -12px rgba(0, 0, 0, 0.5),
+    0 0 0 1px rgba(255, 193, 7, 0.1),
+    inset 0 1px 0 rgba(255, 255, 255, 0.1);
+}
+
+.modalHeader {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 25px 30px 20px;
+  border-bottom: 1px solid rgba(255, 193, 7, 0.2);
+}
+
+.modalHeader h3 {
+  margin: 0;
+  color: #ffc107;
+  font-size: 1.5rem;
+  font-weight: 600;
+}
+
+.closeButton {
+  background: none;
+  border: none;
+  color: #ffc107;
+  font-size: 2rem;
+  cursor: pointer;
+  padding: 0;
+  width: 30px;
+  height: 30px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 50%;
+  transition: all 0.3s ease;
+}
+
+.closeButton:hover {
+  background: rgba(255, 193, 7, 0.1);
+  transform: rotate(90deg);
+}
+
+.modalBody {
+  padding: 30px;
+}
+
+.modalBody p {
+  margin: 0 0 20px;
+  color: #e0e0e0;
+  font-size: 1.1rem;
+}
+
+.passwordInput {
+  width: 100%;
+  padding: 15px 20px;
+  background: rgba(0, 0, 0, 0.3);
+  border: 2px solid rgba(255, 193, 7, 0.3);
+  border-radius: 12px;
+  color: white;
+  font-size: 1.1rem;
+  transition: all 0.3s ease;
+}
+
+.passwordInput:focus {
+  outline: none;
+  border-color: #ffc107;
+  background: rgba(0, 0, 0, 0.5);
+  box-shadow: 0 0 0 3px rgba(255, 193, 7, 0.1);
+}
+
+.passwordInput::placeholder {
+  color: rgba(255, 255, 255, 0.5);
+}
+
+.modalFooter {
+  display: flex;
+  gap: 15px;
+  padding: 20px 30px 30px;
+  justify-content: flex-end;
+}
+
+.cancelButton,
+.submitButton {
+  padding: 12px 24px;
+  border: none;
+  border-radius: 10px;
+  font-size: 1rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.3s ease;
+  min-width: 100px;
+}
+
+.cancelButton {
+  background: rgba(255, 255, 255, 0.1);
+  color: #e0e0e0;
+  border: 1px solid rgba(255, 255, 255, 0.2);
+}
+
+.cancelButton:hover {
+  background: rgba(255, 255, 255, 0.2);
+  transform: translateY(-2px);
+}
+
+.submitButton {
+  background: linear-gradient(135deg, #ffc107 0%, #ffb300 100%);
+  color: #000;
+  box-shadow: 0 5px 15px rgba(255, 193, 7, 0.3);
+}
+
+.submitButton:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 8px 25px rgba(255, 193, 7, 0.4);
+}
+
+/* Enhanced Animations with Yellow Focus */
+@keyframes gradientShift {
+  0%, 100% { 
+    opacity: 1; 
+    filter: hue-rotate(0deg);
+  }
+  50% { 
+    opacity: 0.9; 
+    filter: hue-rotate(15deg);
+  }
+}
+
+@keyframes textGlow {
+  0%, 100% { 
+    text-shadow: 0 0 12px rgba(255, 193, 7, 0.4);
+  }
+  50% { 
+    text-shadow: 
+      0 0 18px rgba(255, 193, 7, 0.6),
+      0 0 25px rgba(255, 193, 7, 0.3),
+      0 0 30px rgba(255, 193, 7, 0.15);
+  }
+}
+
+@keyframes fadeInUp {
+  from {
+    opacity: 0;
+    transform: translateY(40px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@keyframes slideInFromLeft {
+  from {
+    opacity: 0;
+    transform: translateX(-150px) scale(0.95);
+  }
+  to {
+    opacity: 1;
+    transform: translateX(0) scale(1);
+  }
+}
+
+@keyframes float {
+  0%, 100% { 
+    transform: translateY(0px) rotate(0deg) scale(1); 
+  }
+  33% { 
+    transform: translateY(-25px) rotate(120deg) scale(1.1); 
+  }
+  66% { 
+    transform: translateY(15px) rotate(240deg) scale(0.9); 
+  }
+}
+
+@keyframes orbFloat {
+  0%, 100% { 
+    transform: translate(0, 0) scale(1) rotate(0deg); 
+  }
+  33% { 
+    transform: translate(40px, -40px) scale(1.2) rotate(120deg); 
+  }
+  66% { 
+    transform: translate(-30px, 30px) scale(0.8) rotate(240deg); 
+  }
+}
+
+@keyframes adsGlowPulse {
+  0%, 100% { 
+    opacity: 0.3; 
+    transform: scale(1);
+  }
+  50% { 
+    opacity: 0.6; 
+    transform: scale(1.05);
+  }
+}
+
+@keyframes fadeIn {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+
+@keyframes slideUp {
+  from {
+    opacity: 0;
+    transform: translateY(30px) scale(0.95);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+}
+
+/* Responsive Design */
+@media (max-width: 768px) {
+  .heroTitle {
+    font-size: 2rem;
+  }
+  
+  .heroSubtitle {
+    font-size: 1rem;
+  }
+  
+  .heroStats {
+    flex-direction: column;
+    gap: 20px;
+  }
+  
+  .statNumber {
+    font-size: 1.8rem;
+  }
+  
+  .userInfoCard {
+    right: 10px;
+    top: 10px;
+    transform: none;
+    max-width: none;
+    padding: 0;
+  }
+  
+  .avatarCircle {
+    width: 40px;
+    height: 40px;
+    font-size: 1.1rem;
+  }
+  
+  .adminBanner {
+    flex-direction: column;
+    gap: 10px;
+    text-align: center;
+  }
+  
+  .adsContainer {
+    flex-direction: column;
+    gap: 15px;
+    padding: 15px;
+  }
+  
+  .adsPrevButton, .adsNextButton {
+    width: 40px;
+    height: 40px;
+    font-size: 1.2rem;
+  }
+  
+  .adsText {
+    font-size: 1rem;
+    text-align: center;
+  }
+  
+  .adsButton {
+    padding: 12px 24px;
+    font-size: 0.9rem;
+  }
+  
+  .cardsGrid {
+    grid-template-columns: 1fr;
+    gap: 20px;
+  }
+  
+  .sectionTitle h2 {
+    font-size: 2rem;
+  }
+  
+  .navCard {
+    padding: 25px;
+  }
+  
+  .passwordModal {
+    min-width: 320px;
+    margin: 20px;
+  }
+  
+  .modalHeader,
+  .modalBody,
+  .modalFooter {
+    padding: 20px;
+  }
+  
+  .modalFooter {
+    flex-direction: column;
+  }
+  
+  .cancelButton,
+  .submitButton {
+    width: 100%;
+  }
+}
+
+@media (max-width: 480px) {
+  .heroSection {
+    height: 50vh;
+  }
+  
+  .heroTitle {
+    font-size: 1.8rem;
+  }
+  
+  .navigationSection {
+    padding: 40px 15px;
+  }
+  
+  .navCard {
+    padding: 20px;
+  }
+  
+  .cardTitle {
+    font-size: 1.5rem;
+  }
+  
+  .adsSlider {
+    padding: 15px;
+  }
+  
+  .adsText {
+    font-size: 0.9rem;
+  }
+}
+
+/* Force dashboard headings, hero titles, and section titles to use vibrant yellow and add text shadow for visibility */
+.dashboard h1, .dashboard h2, .dashboard h3, .dashboard h4, .dashboard h5, .dashboard h6, .dashboard .heroTitle, .dashboard .sectionTitle h2 {
+  color: #ffd600 !important;
+  text-shadow: 0 1px 8px #181a20, 0 0px 2px #ffd60044;
+}
+
+.dashboard .heroSubtitle, .dashboard .sectionTitle p {
+  color: #fffbe7 !important;
+}
+
+.dashboard .cardTitle, .dashboard .cardDescription {
+  color: #ffd600 !important;
+}
+
+/* Dashboard Navigation Bar */
+.dashboardNavBar {
+  position: absolute;
+  top: 72px;
+  left: 50%;
+  transform: translateX(-50%);
+  z-index: 11;
+  display: flex;
+  gap: 18px;
+  background: rgba(26, 26, 26, 0.92);
+  border-radius: 32px;
+  box-shadow: 0 2px 12px 0 rgba(255,193,7,0.10);
+  padding: 8px 24px;
+  border: 1.5px solid #ffd60044;
+  align-items: center;
+  min-height: 48px;
+}
+
+.dashboardNavBar a {
+  color: #ffd600;
+  font-weight: 600;
+  font-size: 1.08rem;
+  text-decoration: none;
+  padding: 6px 14px;
+  border-radius: 20px;
+  transition: background 0.2s, color 0.2s;
+}
+
+.dashboardNavBar a.active, .dashboardNavBar a:hover {
+  background: #ffd600;
+  color: #181a20;
+}
+
+@media (max-width: 768px) {
+  .dashboardNavBar {
+    top: 60px;
+    padding: 6px 8px;
+    gap: 8px;
+    min-height: 40px;
+  }
+  .dashboardNavBar a {
+    font-size: 0.98rem;
+    padding: 5px 10px;
+  }
+}

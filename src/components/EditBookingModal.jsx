@@ -1,7 +1,8 @@
 import { useState, useEffect } from "react";
+import { resolveGameName } from '../utils/commonUtils';
 
 export default function EditBookingModal({ booking, bookings = [], editingBookingIndex, onClose, onSave }) {
-  const [game, setGame] = useState(booking.game);
+  const [game, setGame] = useState(typeof booking.game === 'object' ? booking.game.id : booking.game);
   const [date, setDate] = useState(booking.date);
   const [time, setTime] = useState(booking.time);
 

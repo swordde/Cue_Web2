@@ -12,7 +12,6 @@ import MainPage from './pages/MainPage.jsx'
 import Login from './pages/Login.jsx'
 import Dashboard from './pages/Dashboard.jsx'
 import BookGame from './pages/BookGame.jsx'
-import DeploymentTest from './pages/DeploymentTest.jsx'
 import EventSelector from './components/EventSelector.jsx'
 import BookingForm from './components/BookingForm.jsx'
 import FirebaseTest from './components/FirebaseTest.jsx'
@@ -71,7 +70,6 @@ createRoot(document.getElementById('root')).render(
             <Route path="/admin" element={<ProtectedAdminRoute><AdminPanel /></ProtectedAdminRoute>} />
             <Route path="/user" element={<UserPanel />} />
             <Route path="/test" element={<>
-              <DeploymentTest />
               <FirebaseTest />
             </>} />
             <Route path="/login" element={<Login />} />

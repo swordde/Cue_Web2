@@ -2,26 +2,87 @@
 <html>
   <head>
     <meta charset="utf-8">
-    <title>Club Booking App</title>
+    <title>Page Not Found - Cue Club Café</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <style>
+      body {
+        font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+        background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+        margin: 0;
+        padding: 0;
+        min-height: 100vh;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        color: white;
+        text-align: center;
+      }
+      .container {
+        max-width: 500px;
+        padding: 2rem;
+      }
+      h1 {
+        font-size: 4rem;
+        margin: 0 0 1rem 0;
+        opacity: 0.8;
+      }
+      h2 {
+        font-size: 1.5rem;
+        margin: 0 0 1rem 0;
+        font-weight: 300;
+      }
+      p {
+        font-size: 1.1rem;
+        line-height: 1.6;
+        margin: 0 0 2rem 0;
+        opacity: 0.9;
+      }
+      .title {
+        font-family: 'Abril Fatface', 'Impact', 'Arial Black', cursive;
+        letter-spacing: 1px;
+      }
+      .btn {
+        display: inline-block;
+        padding: 12px 24px;
+        background: rgba(255, 255, 255, 0.2);
+        color: white;
+        text-decoration: none;
+        border-radius: 8px;
+        transition: all 0.3s ease;
+        backdrop-filter: blur(10px);
+        border: 1px solid rgba(255, 255, 255, 0.3);
+      }
+      .btn:hover {
+        background: rgba(255, 255, 255, 0.3);
+        transform: translateY(-2px);
+      }
+    </style>
     <script type="text/javascript">
-      // Single Page Apps for GitHub Pages
-      // MIT License
-      // https://github.com/rafgraph/spa-github-pages
-      // This script takes the current url and converts the path and query
-      // string into just a query string, and then redirects the browser
-      // to the new url with only a query string and hash fragment.
+      // Single Page Apps for GitHub Pages - SPA redirect handling
       var pathSegmentsToKeep = 2;
-
       var l = window.location;
-      l.replace(
-        l.protocol + '//' + l.hostname + (l.port ? ':' + l.port : '') +
-        l.pathname.split('/').slice(0, 1 + pathSegmentsToKeep).join('/') + '/?/' +
-        l.pathname.slice(1).split('/').slice(pathSegmentsToKeep).join('/').replace(/&/g, '~and~') +
-        (l.search ? '&' + l.search.slice(1).replace(/&/g, '~and~') : '') +
-        l.hash
-      );
+      
+      // Check if this is a valid SPA route that needs redirecting
+      if (l.pathname.length > 1) {
+        l.replace(
+          l.protocol + '//' + l.hostname + (l.port ? ':' + l.port : '') +
+          l.pathname.split('/').slice(0, 1 + pathSegmentsToKeep).join('/') + '/?/' +
+          l.pathname.slice(1).split('/').slice(pathSegmentsToKeep).join('/').replace(/&/g, '~and~') +
+          (l.search ? '&' + l.search.slice(1).replace(/&/g, '~and~') : '') +
+          l.hash
+        );
+      }
     </script>
   </head>
   <body>
+    <div class="container">
+      <h1>🎮</h1>
+      <h2 class="title">Oops! Page Not Found</h2>
+      <p>
+        The page you're looking for doesn't exist or has been moved. 
+        Let's get you back to the gaming action!
+      </p>
+      <a href="#/" class="btn">🏠 Back to Home</a>
+    </div>
   </body>
 </html> 

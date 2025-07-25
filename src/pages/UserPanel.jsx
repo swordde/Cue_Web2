@@ -15,10 +15,10 @@ import { resolveGameName, createToastHelper, handleUserAuthentication, handleLog
 import './UserPanelDark.css';
 
 const SIDEBAR_LINKS = [
-  { key: 'calendar', label: '📅 Calendar' },
-  { key: 'bookings', label: '📋 All Bookings' },
-  { key: 'stats', label: '📊 Statistics' },
-  { key: 'rewards', label: '🎁 Rewards' },
+  { key: 'calendar', label: 'Calendar' },
+  { key: 'bookings', label: 'All Bookings' },
+  { key: 'stats', label: 'Statistics' },
+  { key: 'rewards', label: 'Rewards' },
 ];
 
 export default function UserPanel() {
@@ -357,7 +357,7 @@ export default function UserPanel() {
           {/* Action Buttons */}
           <div className="mt-3">
             <Link to="/book" className="btn btn-success w-100 mb-2 fw-bold" style={{ fontSize: '0.9rem' }}>
-              🎮 Book a Game
+              Book a Game
             </Link>
             <button
               className="btn btn-danger w-100 fw-bold"
@@ -456,7 +456,7 @@ export default function UserPanel() {
                         fontWeight: 'bold',
                         border: '1px solid rgba(255, 152, 0, 0.4)'
                       }}>
-                        📅 Past
+                        Past
                       </span>
                     )}
                   </div>
@@ -561,7 +561,7 @@ export default function UserPanel() {
                 <>
                   <div className="alert alert-info mb-3">
                     <small>
-                      <strong>📊 Booking Statistics:</strong><br/>
+                      <strong>Booking Statistics:</strong><br/>
                       Total: {filteredBookings.length} | Confirmed: {filteredBookings.filter(b => b.status === 'Confirmed').length} | 
                       Pending: {filteredBookings.filter(b => b.status === 'Pending').length} | 
                       Cancelled: {filteredBookings.filter(b => b.status === 'Cancelled').length}
@@ -604,7 +604,7 @@ export default function UserPanel() {
                                   aria-label="View status history"
                                   title="View Status History"
                                 >
-                                  📋
+                                  History
                                 </button>
                                 <button
                                   className="btn btn-outline-primary"
@@ -700,7 +700,7 @@ export default function UserPanel() {
             <div>
               <h5 className="mb-3">Rewards & Achievements</h5>
               <div className="alert alert-warning">
-                <strong>🎁 Rewards System Coming Soon!</strong><br/>
+                <strong>Rewards System Coming Soon!</strong><br/>
                 Earn points, unlock achievements, and get exclusive benefits.
               </div>
             </div>

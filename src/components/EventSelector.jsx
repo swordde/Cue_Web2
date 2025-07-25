@@ -158,7 +158,7 @@ const EventSelector = ({ onEventSelect, onGiftsSelect, onBack }) => {
         </button>
         <div className={styles.headerContent}>
           <h1 className={styles.pageTitle}>Event Management</h1>
-          <p className={styles.pageSubtitle}>Plan your perfect event with Cue Club Cafe</p>
+          <p className={styles.pageSubtitle}>Plan your perfect event with Cue Club Café</p>
         </div>
       </div>
 

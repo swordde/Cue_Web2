@@ -9,7 +9,7 @@ import CurrentOccupancy from "../components/CurrentOccupancy";
 
 import { userService } from "../firebase/services";
 import { useNavigate } from "react-router-dom";
-import { gameService, slotService, bookingService, realtimeService, offlineBookingService, analyticsService } from "../firebase/services";
+import { gameService, slotService, bookingService, realtimeService, offlineBookingService, analyticsService, logAdminAction } from "../firebase/services";
 import { collection, query, orderBy, limit, getDocs } from "firebase/firestore";
 import { db } from "../firebase/config";
 import { auth } from "../firebase/config";
@@ -290,7 +290,7 @@ export default function AdminPanel() {
         type: 'weekend',
         title: 'Weekend Special',
         description: 'Consider extended hours or special packages for weekends',
-        icon: '🎯',
+        icon: '',
         priority: 'medium'
       });
     }
@@ -1494,7 +1494,7 @@ export default function AdminPanel() {
             title="Switch light/dark mode"
             style={{ minWidth: 40 }}
           >
-            {theme === 'dark' ? '🌙' : '☀️'}
+            {theme === 'dark' ? 'Dark' : 'Light'}
           </button>
           <button 
             onClick={dismissAllNotifications} 
@@ -1517,7 +1517,7 @@ export default function AdminPanel() {
             className={`nav-link ${activeTab === 'adduser' ? 'active' : ''}`}
             onClick={() => setActiveTab('adduser')}
           >
-            👤 Add User
+            Add User
           </button>
         </li>
         <li className="nav-item" style={{minWidth: 120}}>
@@ -1525,7 +1525,7 @@ export default function AdminPanel() {
             className={`nav-link ${activeTab === 'userlist' ? 'active' : ''}`}
             onClick={() => setActiveTab('userlist')}
           >
-            🗂️ User List
+            User List
           </button>
         </li>
         <li className="nav-item" style={{minWidth: 120}}>
@@ -1533,7 +1533,7 @@ export default function AdminPanel() {
             className={`nav-link ${activeTab === 'bookings' ? 'active' : ''}`}
             onClick={() => setActiveTab('bookings')}
           >
-            📋 Online Bookings
+            Online Bookings
           </button>
         </li>
         <li className="nav-item" style={{minWidth: 140}}>
@@ -1541,7 +1541,7 @@ export default function AdminPanel() {
             className={`nav-link ${activeTab === 'offline-bookings' ? 'active' : ''}`}
             onClick={() => setActiveTab('offline-bookings')}
           >
-            📝 Offline Bookings
+            Offline Bookings
           </button>
         </li>
         <li className="nav-item" style={{minWidth: 120}}>
@@ -1549,7 +1549,7 @@ export default function AdminPanel() {
             className={`nav-link ${activeTab === 'slots' ? 'active' : ''}`}
             onClick={() => setActiveTab('slots')}
           >
-            ⏰ Slot Management
+            Slot Management
           </button>
         </li>
         <li className="nav-item" style={{minWidth: 120}}>
@@ -1557,7 +1557,7 @@ export default function AdminPanel() {
             className={`nav-link ${activeTab === 'games' ? 'active' : ''}`}
             onClick={() => setActiveTab('games')}
           >
-            🎮 Game Management
+            Game Management
           </button>
         </li>
         <li className="nav-item">
@@ -1565,7 +1565,7 @@ export default function AdminPanel() {
             className={`nav-link ${activeTab === 'analytics' ? 'active' : ''}`}
             onClick={() => handleTabChange('analytics')}
           >
-            📊 Analytics
+            Analytics
           </button>
         </li>
         <li className="nav-item">
@@ -1573,7 +1573,7 @@ export default function AdminPanel() {
             className={`nav-link ${activeTab === 'activities' ? 'active' : ''}`}
             onClick={() => setActiveTab('activities')}
           >
-            🎮 Games & Slots Log
+            Games & Slots Log
           </button>
         </li>
       </ul>
@@ -1655,16 +1655,39 @@ export default function AdminPanel() {
                             className={`btn btn-sm ${u.isActive === false ? 'btn-success' : 'btn-warning'}`}
                             onClick={async () => {
                               try {
-                                await userService.updateUser(u.id || u.mobile, { isActive: !(u.isActive !== false) });
+                                const newStatus = !(u.isActive !== false);
+                                console.log(`Updating user ${u.mobile} status from ${u.isActive} to ${newStatus}`);
+                                
+                                await userService.updateUser(u.id || u.mobile, { isActive: newStatus });
+                                
+                                // Log admin action
+                                await logAdminAction({
+                                  action: newStatus ? 'activate user' : 'deactivate user',
+                                  targetType: 'user',
+                                  targetId: u.id || u.mobile,
+                                  details: {
+                                    userName: u.name || 'Unknown',
+                                    mobile: u.mobile,
+                                    previousStatus: u.isActive !== false,
+                                    newStatus: newStatus
+                                  }
+                                });
+                                
                                 // Update users state after change
                                 const updatedUsers = users.map(user =>
                                   (user.id || user.mobile) === (u.id || u.mobile)
-                                    ? { ...user, isActive: !(u.isActive !== false) }
+                                    ? { ...user, isActive: newStatus }
                                     : user
                                 );
                                 setUsers(updatedUsers);
+                                
+                                // Show success message
+                                const action = newStatus ? 'activated' : 'deactivated';
+                                showSuccess(`User ${u.name || u.mobile} ${action} successfully!`);
+                                
                               } catch (err) {
-                                alert('Failed to update user status');
+                                console.error('Error updating user status:', err);
+                                showError(`Failed to update user status: ${err.message}`);
                               }
                             }}
                           >

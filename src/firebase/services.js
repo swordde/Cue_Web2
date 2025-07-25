@@ -113,6 +113,40 @@ export const userService = {
     }
   },
 
+  // Update user by ID or mobile
+  async updateUser(identifier, updates) {
+    try {
+      checkAuth();
+      let userRef;
+      
+      // If identifier looks like a document ID, use it directly
+      if (typeof identifier === 'string' && identifier.length > 10 && !identifier.includes('+')) {
+        userRef = doc(db, USERS_COLLECTION, identifier);
+      } else {
+        // Otherwise, find user by mobile number
+        const userQuery = query(
+          collection(db, USERS_COLLECTION),
+          where('mobile', '==', identifier)
+        );
+        const snapshot = await getDocs(userQuery);
+        if (snapshot.empty) {
+          throw new Error('User not found');
+        }
+        userRef = doc(db, USERS_COLLECTION, snapshot.docs[0].id);
+      }
+      
+      await updateDoc(userRef, {
+        ...updates,
+        updatedAt: serverTimestamp()
+      });
+      
+      console.log('User updated successfully:', identifier);
+    } catch (error) {
+      console.error('Error updating user:', error);
+      throw error;
+    }
+  },
+
   // Get all users
   async getAllUsers() {
     try {

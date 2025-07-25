@@ -11,28 +11,28 @@ import styles from './Dashboard.module.css';
 const features = [
   { 
     label: 'Games', 
-    icon: '🎮', 
+    icon: '', 
     path: '/book', 
     description: 'PS5, Xbox, Pool, Snooker, Darts & More',
     features: ['Premium Gaming Setup', 'Latest Game Titles', 'Competitive Tournaments']
   },
   { 
     label: 'Event Management', 
-    icon: '�', 
+    icon: '', 
     path: '/party', 
     description: 'Birthday Parties, Corporate Events & Celebrations',
     features: ['Custom Event Planning', 'Premium Gift Options', 'Full Service Management']
   },
   { 
     label: 'Food & Hospitality', 
-    icon: '🍽️', 
+    icon: '', 
     path: '/menu', 
     description: 'Premium Dining, Beverages & Catering Services',
     features: ['Group Bookings', 'Special Packages', 'Custom Menus']
   },
   { 
     label: 'Gifts', 
-    icon: '🎁', 
+    icon: '', 
     path: '/gifts', 
     description: 'Gift Cards, Merchandise & Special Vouchers',
     features: ['Digital Gift Cards', 'Custom Amounts', 'Instant Delivery']
@@ -50,19 +50,19 @@ export default function Dashboard() {
 
   const ads = [
     {
-      text: "🎮 Special Offer: 20% OFF on PS5 Gaming Sessions this weekend! 🎮",
+      text: "Special Offer: 20% OFF on PS5 Gaming Sessions this weekend!",
       button: "Claim Now"
     },
     {
-      text: "🎱 Pool Tournament: Join our weekly championship - Prize: ₹5000! 🏆",
+      text: "Pool Tournament: Join our weekly championship - Prize: ₹5000!",
       button: "Register"
     },
     {
-      text: "🎉 Birthday Special: Book party packages and get 30% OFF! 🎂",
+      text: "Birthday Special: Book party packages and get 30% OFF!",
       button: "Book Now"
     },
     {
-      text: "🎯 Darts League: New season starting - Limited spots available! 🎯",
+      text: "Darts League: New season starting - Limited spots available!",
       button: "Join League"
     }
   ];
@@ -168,7 +168,10 @@ export default function Dashboard() {
         <div className={styles.heroOverlay}></div>
         <div className={styles.heroContent}>
           <h1 className={styles.heroTitle}>
-            Welcome to <span className={styles.highlight}>Cue Club Cafe</span>
+            Welcome to <span className={styles.highlight} style={{
+              fontFamily: '"Abril Fatface", "Anton", "Bebas Neue", "Impact", "Arial Black", cursive',
+              letterSpacing: '2px'
+            }}>Cue Club Café</span>
           </h1>
           <p className={styles.heroSubtitle}>
             Your ultimate destination for gaming, events, and unforgettable experiences

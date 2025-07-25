@@ -235,7 +235,12 @@ export default function Login() {
         <div className={styles.overlay + " w-full h-full flex flex-col md:flex-row items-center justify-center bg-black/70 md:bg-black/60"}>
           <div className={styles.leftSection + " w-full md:w-1/2 flex flex-col items-center justify-center p-4 md:p-12 text-center md:text-left"}>
             <div className={styles.imageWrapper + " mb-2 md:mb-6"}>
-              <b className={styles.welcomeTitle + " text-2xl md:text-4xl text-yellow-400 drop-shadow-lg"}>WELCOME TO CUE CLUB CAFE</b>
+              <b className={styles.welcomeTitle + " text-2xl md:text-4xl text-yellow-400 drop-shadow-lg"}>
+                WELCOME TO <span style={{
+                  fontFamily: '"Abril Fatface", "Anton", "Bebas Neue", "Impact", "Arial Black", cursive',
+                  letterSpacing: '2px'
+                }}>CUE CLUB CAFÉ</span>
+              </b>
             </div>
             <div className={styles.description + " text-base md:text-lg max-w-md mx-auto md:mx-0"} style={{ color: '#e0e0e0' }}>
               Discover the best food from over 1,000 restaurants and fast delivery to your doorstep. We make food ordering fast, simple and free - no matter if you order online or cash.

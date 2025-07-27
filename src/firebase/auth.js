@@ -168,6 +168,22 @@ export const firebaseAuth = {
           }
         }
         
+        // Validate and clean username
+        if (username) {
+          username = username.trim();
+          // Ensure proper capitalization
+          username = username.replace(/\b\w+/g, word => 
+            word.charAt(0).toUpperCase() + word.slice(1).toLowerCase()
+          );
+        }
+        
+        console.log('🔍 Processing user authentication:', {
+          mobile,
+          providedUsername: usernameFromParam,
+          finalUsername: username,
+          isSignup: !existingUser
+        });
+        
         // Check if user already exists
         const existingUser = await userService.getUserByMobile(mobile);
         
@@ -179,12 +195,19 @@ export const firebaseAuth = {
           clubCoins: existingUser?.clubCoins || 0,
           streak: existingUser?.streak || 0,
           lastLogin: new Date().toISOString(),
-          isActive: existingUser ? existingUser.isActive : true
+          isActive: existingUser ? existingUser.isActive : true,
+          email: existingUser?.email || null
         };
         
         // Only create user if they don't already exist
         if (!existingUser) {
+          console.log('✅ Creating new user with data:', userData);
           await userService.createUser(userData);
+        } else {
+          console.log('🔄 Updating existing user login time');
+          await userService.updateUser(existingUser.id || mobile, {
+            lastLogin: new Date().toISOString()
+          });
         }
         
         // Store user info in localStorage

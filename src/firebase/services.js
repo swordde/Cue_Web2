@@ -42,14 +42,34 @@ export const userService = {
   async createUser(userData) {
     try {
       checkAuth();
-      const userRef = await addDoc(collection(db, USERS_COLLECTION), {
+      
+      // Validate required fields
+      if (!userData.mobile) {
+        throw new Error('Mobile number is required');
+      }
+      
+      if (!userData.name || userData.name.trim().length < 2) {
+        throw new Error('Valid name is required (at least 2 characters)');
+      }
+      
+      // Ensure name is properly formatted
+      const formattedUserData = {
         ...userData,
+        name: userData.name.trim(),
+        mobile: userData.mobile.toString(),
         createdAt: serverTimestamp(),
         updatedAt: serverTimestamp()
-      });
-      return { id: userRef.id, ...userData };
+      };
+      
+      console.log('🔥 Creating user in Firestore:', formattedUserData);
+      
+      const userRef = await addDoc(collection(db, USERS_COLLECTION), formattedUserData);
+      
+      console.log('✅ User created successfully with ID:', userRef.id);
+      
+      return { id: userRef.id, ...formattedUserData };
     } catch (error) {
-      console.error('Error creating user:', error);
+      console.error('❌ Error creating user:', error);
       throw error;
     }
   },
@@ -58,17 +78,30 @@ export const userService = {
   async getUserByMobile(mobile) {
     try {
       // Don't require auth for this function as it's used during signup
+      if (!mobile) {
+        console.warn('getUserByMobile called with empty mobile');
+        return null;
+      }
+      
+      const mobileString = mobile.toString();
+      console.log('🔍 Searching for user with mobile:', mobileString);
+      
       const userQuery = query(
         collection(db, USERS_COLLECTION),
-        where('mobile', '==', mobile)
+        where('mobile', '==', mobileString)
       );
       const snapshot = await getDocs(userQuery);
+      
       if (!snapshot.empty) {
-        return { id: snapshot.docs[0].id, ...snapshot.docs[0].data() };
+        const userData = { id: snapshot.docs[0].id, ...snapshot.docs[0].data() };
+        console.log('✅ Found existing user:', userData.name, userData.mobile);
+        return userData;
       }
+      
+      console.log('ℹ️ No user found with mobile:', mobileString);
       return null;
     } catch (error) {
-      console.error('Error getting user by mobile:', error);
+      console.error('❌ Error getting user by mobile:', error);
       return null;
     }
   },
@@ -212,6 +245,7 @@ export const bookingService = {
       // Sanitize booking data to remove any non-serializable objects
       const sanitizedData = {
         game: bookingData.game,
+        gameId: bookingData.gameId, // Add gameId for reference
         date: bookingData.date,
         time: bookingData.time,
         user: bookingData.user,
@@ -224,11 +258,47 @@ export const bookingService = {
           notes: bookingData.notes || '',
           changedBy: auth.currentUser?.phoneNumber || auth.currentUser?.email || 'system'
         }],
+        // Add session information
+        sessionId: bookingData.sessionId,
+        isFirstSlotInSession: bookingData.isFirstSlotInSession,
+        sessionDuration: bookingData.sessionDuration,
+        sessionSlotCount: bookingData.sessionSlotCount,
         createdAt: serverTimestamp(),
         updatedAt: serverTimestamp()
       };
       
       const bookingRef = await addDoc(collection(db, BOOKINGS_COLLECTION), sanitizedData);
+      
+      // Award coins to user if booking is confirmed and it's the first slot in the session
+      if (bookingData.status === 'confirmed' && bookingData.user?.mobile && bookingData.isFirstSlotInSession) {
+        try {
+          // Get game details to find coin reward
+          const game = await gameService.getGame(bookingData.gameId || bookingData.game?.id || bookingData.game);
+          const baseCoinsPerHour = game?.coins || 0;
+          
+          if (baseCoinsPerHour > 0) {
+            // Calculate duration-based coins (coins per hour * session duration)
+            const sessionDuration = bookingData.sessionDuration || 0.5; // Default to 30 minutes
+            const coinsToAward = Math.floor(baseCoinsPerHour * sessionDuration);
+            
+            // Get current user data
+            const currentUser = await this.getUserByMobile(bookingData.user.mobile);
+            const currentCoins = currentUser?.clubCoins || 0;
+            
+            // Update user coins
+            await this.updateUser(currentUser?.id || bookingData.user.mobile, {
+              clubCoins: currentCoins + coinsToAward,
+              updatedAt: new Date().toISOString()
+            });
+            
+            console.log(`🪙 Awarded ${coinsToAward} coins (${baseCoinsPerHour}/hr × ${sessionDuration}h) to ${bookingData.user.mobile} for session ${bookingData.sessionId}`);
+          }
+        } catch (coinError) {
+          console.error('Error awarding coins:', coinError);
+          // Don't fail the booking if coin awarding fails
+        }
+      }
+      
       await logAdminAction({
         action: 'create booking',
         targetType: 'booking',
@@ -477,6 +547,31 @@ export const gameService = {
 
 // Slot Services
 export const slotService = {
+  // Clear all slots for a date and game
+  async clearSlotsForDate(date, gameId) {
+    try {
+      checkAuth();
+      const slotQuery = query(
+        collection(db, SLOTS_COLLECTION),
+        where('date', '==', date),
+        where('gameId', '==', gameId)
+      );
+      const snapshot = await getDocs(slotQuery);
+      if (!snapshot.empty) {
+        const slotRef = doc(db, SLOTS_COLLECTION, snapshot.docs[0].id);
+        await deleteDoc(slotRef);
+        await logAdminAction({
+          action: 'delete slot',
+          targetType: 'slot',
+          targetId: slotRef.id,
+          details: { date, gameId }
+        });
+      }
+    } catch (error) {
+      console.error('Error clearing slots:', error);
+      throw error;
+    }
+  },
   // Add slots for a date
   async addSlotsForDate(date, gameId, slots) {
     try {
@@ -570,9 +665,12 @@ export const slotService = {
       }
       
       if (!date || !gameId) {
+        console.warn('Missing date or gameId:', { date, gameId });
         callback([]);
         return () => {};
       }
+      
+      console.log('Setting up slots listener for:', { date, gameId });
       
       const slotQuery = query(
         collection(db, SLOTS_COLLECTION),
@@ -582,10 +680,19 @@ export const slotService = {
       
       return onSnapshot(slotQuery, 
         (snapshot) => {
+          console.log('Slots snapshot received:', {
+            empty: snapshot.empty,
+            size: snapshot.size,
+            date,
+            gameId
+          });
+          
           if (!snapshot.empty) {
             const slots = snapshot.docs[0].data().slots || [];
+            console.log('Found slots:', slots);
             callback(slots);
           } else {
+            console.log('No slots found for date/game:', { date, gameId });
             callback([]);
           }
         },

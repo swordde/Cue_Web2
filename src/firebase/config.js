@@ -22,6 +22,14 @@ const app = initializeApp(firebaseConfig);
 export const db = getFirestore(app);
 export const auth = getAuth(app);
 
+// Enable Firebase debug mode for localhost
+if (window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1') {
+  console.log('🔧 Firebase Debug Mode: Enabled for localhost');
+  // This helps with debugging Firebase issues in development
+  auth.settings = auth.settings || {};
+  auth.settings.appVerificationDisabledForTesting = false; // Keep verification for security
+}
+
 // Test Firebase connection
 export const testFirebaseConnection = async () => {
   try {

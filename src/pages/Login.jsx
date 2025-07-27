@@ -7,7 +7,7 @@ import Loading from "../components/Loading";
 import { useToast } from '../contexts/ToastContext';
 import { userService } from '../firebase/services';
 import { createToastHelper } from '../utils/commonUtils';
-import styles from "./FoodOrderWelcomePage.module.css";
+import styles from "./Login.module.css";
 
 
 export default function Login() {
@@ -66,6 +66,16 @@ export default function Login() {
       setError("Enter a valid username (at least 2 characters)");
       return;
     }
+    
+    // Additional validation for username: no special characters except spaces, hyphens, and apostrophes
+    if (tab === "signup" && username.trim()) {
+      const nameRegex = /^[a-zA-Z\s\-']+$/;
+      if (!nameRegex.test(username.trim())) {
+        showToast("Name should only contain letters, spaces, hyphens, and apostrophes", "error");
+        setError("Name should only contain letters, spaces, hyphens, and apostrophes");
+        return;
+      }
+    }
     setLoading(true);
     setError("");
     try {
@@ -100,6 +110,7 @@ export default function Login() {
       const result = await firebaseAuth.sendOTP(phoneNumber, "recaptcha-container");
       setConfirmationResult(result);
       setStep(2);
+      setResendCooldown(30); // Set initial cooldown timer
       showToast(tab === "signup" ? "OTP sent! Verify to create your account." : "OTP sent successfully!", "success");
     } catch (err) {
       console.error('OTP send error:', err);
@@ -182,6 +193,13 @@ export default function Login() {
         showToast("Please enter a valid username (at least 2 characters)", "error");
         return;
       }
+      
+      // Additional validation for username format
+      const nameRegex = /^[a-zA-Z\s\-']+$/;
+      if (!nameRegex.test(trimmedUsername)) {
+        showToast("Name should only contain letters, spaces, hyphens, and apostrophes", "error");
+        return;
+      }
     }
     
     setLoading(true);
@@ -228,26 +246,22 @@ export default function Login() {
         <Loading />, 
         document.body
       )}
-      <div
-        className={styles.foodOrderWelcomePage + " min-h-screen flex flex-col md:flex-row items-center justify-center bg-cover bg-center"}
-        style={{ backgroundImage: `url(/Rectangle.png)` }}
-      >
-        <div className={styles.overlay + " w-full h-full flex flex-col md:flex-row items-center justify-center bg-black/70 md:bg-black/60"}>
-          <div className={styles.leftSection + " w-full md:w-1/2 flex flex-col items-center justify-center p-4 md:p-12 text-center md:text-left"}>
-            <div className={styles.imageWrapper + " mb-2 md:mb-6"}>
-              <b className={styles.welcomeTitle + " text-2xl md:text-4xl text-yellow-400 drop-shadow-lg"}>
+      <div className={styles.loginPage} style={{ backgroundImage: `url(/Rectangle.png)` }}>
+        <div className={styles.overlay}>
+          <div className={styles.leftSection}>
+            <div className="mb-2 md:mb-6">
+              <b className={styles.welcomeTitle}>
                 WELCOME TO <span style={{
                   fontFamily: '"Abril Fatface", "Anton", "Bebas Neue", "Impact", "Arial Black", cursive',
                   letterSpacing: '2px'
                 }}>CUE CLUB CAFÉ</span>
               </b>
             </div>
-            <div className={styles.description + " text-base md:text-lg max-w-md mx-auto md:mx-0"} style={{ color: '#e0e0e0' }}>
+            <div className={styles.description}>
               Discover the best food from over 1,000 restaurants and fast delivery to your doorstep. We make food ordering fast, simple and free - no matter if you order online or cash.
             </div>
           </div>
-          <div
-            className={styles.rightSection + " w-full md:w-1/2 flex flex-col items-center justify-center p-4 md:p-12 bg-black/80 rounded-t-2xl md:rounded-l-2xl md:rounded-t-none shadow-lg"}
+          <div className={styles.rightSection}
             tabIndex={0}
             onKeyDown={e => {
               if (e.ctrlKey && e.code === 'Space') {
@@ -259,20 +273,16 @@ export default function Login() {
             {/* Forms section, Get Started style for signin */}
             {/* Forms section, Get Started style for signin */}
             {/* Get Started heading above the tab buttons */}
-            <div className="font-bold text-2xl md:text-3xl text-yellow-400 mb-2 md:mb-4 w-full text-left">Get Started</div>
-            <div className="flex justify-center mb-3 w-full gap-0 relative min-h-[48px]">
+            <div className={styles.getStartedTitle}>Get Started</div>
+            <div className={styles.tabContainer}>
               <button
                 type="button"
-                className={
-                  `${styles.tabButton} ${tab === 'signin' ? styles.tabButtonActive : ''}`
-                }
+                className={`${styles.tabButton} ${tab === 'signin' ? styles.tabButtonActive : ''}`}
                 onClick={() => { setTab('signin'); setStep(1); setError(''); }}
               >Phone Sign In</button>
               <button
                 type="button"
-                className={
-                  `${styles.tabButton} ${tab === 'signup' ? styles.tabButtonActive : ''}`
-                }
+                className={`${styles.tabButton} ${tab === 'signup' ? styles.tabButtonActive : ''}`}
                 onClick={() => { setTab('signup'); setStep(1); setError(''); }}
               >Phone Sign Up</button>
               {/* Secret Email Login button, hidden visually but accessible via keyboard or a small icon */}
@@ -293,213 +303,153 @@ export default function Login() {
                 onClick={() => { setTab('email'); setError(''); }}
               >Email Login</button>
             </div>
-            <div className="flex flex-col justify-start items-center w-full relative min-h-[370px] transition-all duration-200">
+            <div className={styles.formContainer}>
             {!loading && tab === 'signin' && step === 1 && (
-              <form onSubmit={handleSendOtp} className={styles.form} style={{ maxWidth: 360, width: '100%', margin: '0 auto', marginTop: 8, minHeight: 320, display: 'flex', flexDirection: 'column', justifyContent: 'center' }}>
+              <form onSubmit={handleSendOtp} className={styles.form}>
                 {/* Error message display */}
                 {error && (
-                  <div style={{
-                    background: 'rgba(255, 0, 0, 0.12)',
-                    color: '#ff5252',
-                    borderRadius: 8,
-                    padding: '10px 16px',
-                    marginBottom: 12,
-                    textAlign: 'center',
-                    fontWeight: 500,
-                    fontSize: '1rem',
-                    wordBreak: 'break-word',
-                    maxWidth: 340,
-                    marginLeft: 'auto',
-                    marginRight: 'auto',
-                  }}>{error}</div>
+                  <div className={styles.errorMessage}>{error}</div>
                 )}
-                <div style={{ color: '#fff', marginBottom: 14, textAlign: 'center', width: '100%' }}>Enter your phone number to continue</div>
-                <label htmlFor="mobile" className={styles.phoneLabel} style={{ color: '#FFC107', marginTop: 4, marginBottom: 4 }}>Phone Number</label>
-                <div style={{ display: 'flex', alignItems: 'center', background: '#181818', borderRadius: 8, overflow: 'hidden', border: '1.5px solid #333', marginBottom: 8 }}>
-                  <span style={{ background: '#232323', color: '#FFC107', fontWeight: 600, padding: '0 14px', height: 44, display: 'flex', alignItems: 'center', borderRight: '1.5px solid #333', fontSize: 16 }}>+91</span>
-                  <input
-                    id="mobile"
-                    type="tel"
-                    maxLength={10}
-                    className={styles.phoneInput}
-                    placeholder="Enter your phone number"
-                    value={mobile}
-                    onChange={e => setMobile(e.target.value.replace(/\D/g, ""))}
-                    required
-                    style={{
-                      outline: 'none',
-                      boxShadow: '0 0 0 2px transparent',
-                      transition: 'box-shadow 0.2s',
-                      background: 'transparent',
-                      border: 'none',
-                      color: '#fff',
-                      fontSize: 16,
-                      height: 44,
-                      padding: '0 12px',
-                      width: '100%',
-                    }}
-                    onFocus={e => e.target.style.boxShadow = '0 0 0 2px #FFC107'}
-                    onBlur={e => e.target.style.boxShadow = '0 0 0 2px transparent'}
-                  />
+                <div className={styles.instructionText}>Enter your phone number to continue</div>
+                <div className={styles.inputGroup}>
+                  <label htmlFor="mobile" className={styles.inputLabel}>Phone Number</label>
+                  <div className={styles.phoneInputContainer}>
+                    <span className={styles.countryCode}>+91</span>
+                    <input
+                      id="mobile"
+                      type="tel"
+                      maxLength={10}
+                      className={styles.input}
+                      placeholder="Enter your phone number"
+                      value={mobile}
+                      onChange={e => setMobile(e.target.value.replace(/\D/g, ""))}
+                      required
+                    />
+                  </div>
                 </div>
-                <button
-                  type="submit"
-                  className={styles.otpButton}
-                  style={{
-                    fontWeight: 600,
-                    fontSize: '1.15rem',
-                    marginTop: 39,
-                    width: 240,
-                    maxWidth: '100%',
-                    alignSelf: 'center',
-                    minHeight: 48,
-                    borderRadius: 8,
-                  }}
-                >
-                  {tab === 'signin' ? 'Get OTP' : 'Send OTP'}
+                <button type="submit" className={styles.primaryButton}>
+                  Get OTP
                 </button>
               </form>
             )}
             {!loading && tab === 'signin' && step === 2 && (
-              <form onSubmit={handleVerifyOtp} className={styles.form} style={{ maxWidth: 360, width: '100%', margin: '0 auto', minHeight: 320, display: 'flex', flexDirection: 'column', justifyContent: 'center' }}>
-                <label className={styles.phoneLabel}>Enter OTP</label>
-                <OtpInput length={6} onComplete={setOtp} onOtpChange={setOtp} />
-                <button type="submit" className={styles.otpButton}>Verify & Login</button>
-                <button type="button" className={styles.otpButton} style={{ background: resendCooldown > 0 ? '#9ca3af' : '#3b82f6', opacity: resendCooldown > 0 ? 0.6 : 1 }} onClick={handleResendOtp} disabled={resendCooldown > 0}>
+              <form onSubmit={handleVerifyOtp} className={styles.form}>
+                <div className={styles.inputGroup}>
+                  <label className={styles.inputLabel}>Enter OTP</label>
+                  <OtpInput length={6} onComplete={setOtp} onOtpChange={setOtp} />
+                </div>
+                <button type="submit" className={styles.primaryButton}>Verify & Login</button>
+                <button 
+                  type="button" 
+                  className={styles.secondaryButton} 
+                  onClick={handleResendOtp} 
+                  disabled={resendCooldown > 0}
+                >
                   {resendCooldown > 0 ? `Resend OTP (${resendCooldown}s)` : 'Resend OTP'}
                 </button>
-                <button type="button" className={styles.backButton} onClick={() => { setStep(1); setOtp(""); setError(""); }}>Back</button>
+                <button 
+                  type="button" 
+                  className={styles.backButton} 
+                  onClick={() => { setStep(1); setOtp(""); setError(""); }}
+                >
+                  Back
+                </button>
               </form>
             )}
             {!loading && tab === 'signup' && step === 1 && (
-              <form onSubmit={handleSendOtp} className={styles.form} style={{ maxWidth: 360, width: '100%', margin: '0 auto', marginTop: 8, minHeight: 320, display: 'flex', flexDirection: 'column', justifyContent: 'center' }}>
+              <form onSubmit={handleSendOtp} className={styles.form}>
                 {/* Error message display */}
                 {error && (
-                  <div style={{
-                    background: 'rgba(255, 0, 0, 0.12)',
-                    color: '#ff5252',
-                    borderRadius: 8,
-                    padding: '10px 16px',
-                    marginBottom: 12,
-                    textAlign: 'center',
-                    fontWeight: 500,
-                    fontSize: '1rem',
-                    wordBreak: 'break-word',
-                    maxWidth: 340,
-                    marginLeft: 'auto',
-                    marginRight: 'auto',
-                  }}>{error}</div>
+                  <div className={styles.errorMessage}>{error}</div>
                 )}
-                <div style={{ color: '#fff', marginBottom: 14, textAlign: 'center', width: '100%' }}>Enter your details to sign up</div>
-                <label htmlFor="username" className={styles.phoneLabel} style={{ color: '#FFC107', marginBottom: 4 }}>User Name</label>
-                <input
-                  id="username"
-                  type="text"
-                  className={styles.phoneInput}
-                  placeholder="Enter your name"
-                  value={username}
-                  onChange={e => setUsername(e.target.value)}
-                  required
-                  minLength={2}
-                  style={{
-                    outline: 'none',
-                    boxShadow: '0 0 0 2px transparent',
-                    transition: 'box-shadow 0.2s',
-                    background: 'transparent',
-                    border: '1.5px solid #333',
-                    color: '#fff',
-                    fontSize: 16,
-                    height: 44,
-                    padding: '0 12px',
-                    borderRadius: 8,
-                    marginBottom: 8,
-                  }}
-                  onFocus={e => e.target.style.boxShadow = '0 0 0 2px #FFC107'}
-                  onBlur={e => e.target.style.boxShadow = '0 0 0 2px transparent'}
-                />
-                <label htmlFor="mobile" className={styles.phoneLabel} style={{ marginBottom: 4 }}>Phone Number</label>
-                <div style={{ display: 'flex', alignItems: 'center', background: '#181818', borderRadius: 8, overflow: 'hidden', border: '1.5px solid #333', marginBottom: 8 }}>
-                  <span style={{ background: '#232323', color: '#FFC107', fontWeight: 600, padding: '0 14px', height: 44, display: 'flex', alignItems: 'center', borderRight: '1.5px solid #333', fontSize: 16 }}>+91</span>
+                <div className={styles.inputGroup}>
+                  <label htmlFor="username" className={styles.inputLabel}>User Name</label>
                   <input
-                    id="mobile"
-                    type="tel"
-                    maxLength={10}
-                    className={styles.phoneInput}
-                    placeholder="Enter your phone number"
-                    value={mobile}
-                    onChange={e => setMobile(e.target.value.replace(/\D/g, ""))}
+                    id="username"
+                    type="text"
+                    className={styles.textInput}
+                    placeholder="Enter your name"
+                    value={username}
+                    onChange={e => setUsername(e.target.value)}
                     required
-                    style={{
-                      outline: 'none',
-                      boxShadow: '0 0 0 2px transparent',
-                      transition: 'box-shadow 0.2s',
-                      background: 'transparent',
-                      border: 'none',
-                      color: '#fff',
-                      fontSize: 16,
-                      height: 44,
-                      padding: '0 12px',
-                      width: '100%',
-                    }}
-                    onFocus={e => e.target.style.boxShadow = '0 0 0 2px #FFC107'}
-                    onBlur={e => e.target.style.boxShadow = '0 0 0 2px transparent'}
+                    minLength={2}
                   />
                 </div>
-                <button
-                  type="submit"
-                  className={styles.otpButton}
-                  style={{
-                    fontWeight: 600,
-                    fontSize: '1.15rem',
-                    marginTop: 8,
-                    width: 240,
-                    maxWidth: '100%',
-                    alignSelf: 'center',
-                    minHeight: 48,
-                    borderRadius: 8,
-                  }}
-                >
-                  {tab === 'signin' ? 'Get OTP' : 'Send OTP'}
+                <div className={styles.inputGroup}>
+                  <label htmlFor="mobile" className={styles.inputLabel}>Phone Number</label>
+                  <div className={styles.phoneInputContainer}>
+                    <span className={styles.countryCode}>+91</span>
+                    <input
+                      id="mobile"
+                      type="tel"
+                      maxLength={10}
+                      className={styles.input}
+                      placeholder="Enter your phone number"
+                      value={mobile}
+                      onChange={e => setMobile(e.target.value.replace(/\D/g, ""))}
+                      required
+                    />
+                  </div>
+                </div>
+                <button type="submit" className={styles.primaryButton}>
+                  Send OTP
                 </button>
               </form>
             )}
             {!loading && tab === 'signup' && step === 2 && (
-              <form onSubmit={handleVerifyOtp} className={styles.form} style={{ maxWidth: 360, width: '100%', margin: '0 auto', minHeight: 320, display: 'flex', flexDirection: 'column', justifyContent: 'center' }}>
-                <label className={styles.phoneLabel}>Enter OTP</label>
-                <OtpInput length={6} onComplete={setOtp} onOtpChange={setOtp} />
-                <button type="submit" className={styles.otpButton}>Verify & Sign Up</button>
-                <button type="button" className={styles.otpButton} style={{ background: resendCooldown > 0 ? '#9ca3af' : '#3b82f6', opacity: resendCooldown > 0 ? 0.6 : 1 }} onClick={handleResendOtp} disabled={resendCooldown > 0}>
+              <form onSubmit={handleVerifyOtp} className={styles.form}>
+                <div className={styles.inputGroup}>
+                  <label className={styles.inputLabel}>Enter OTP</label>
+                  <OtpInput length={6} onComplete={setOtp} onOtpChange={setOtp} />
+                </div>
+                <button type="submit" className={styles.primaryButton}>Verify & Sign Up</button>
+                <button 
+                  type="button" 
+                  className={styles.secondaryButton} 
+                  onClick={handleResendOtp} 
+                  disabled={resendCooldown > 0}
+                >
                   {resendCooldown > 0 ? `Resend OTP (${resendCooldown}s)` : 'Resend OTP'}
                 </button>
-                <button type="button" className={styles.backButton} onClick={() => { setStep(1); setOtp(""); setError(""); }}>Back</button>
+                <button 
+                  type="button" 
+                  className={styles.backButton} 
+                  onClick={() => { setStep(1); setOtp(""); setError(""); }}
+                >
+                  Back
+                </button>
               </form>
             )}
             {!loading && tab === 'email' && (
-              <form onSubmit={handleEmailLogin} className={styles.form} style={{ maxWidth: 360, width: '100%', margin: '0 auto', minHeight: 320, display: 'flex', flexDirection: 'column', justifyContent: 'center' }}>
-                <label htmlFor="email" className={styles.phoneLabel}>Email</label>
-                <input
-                  id="email"
-                  type="email"
-                  className={styles.phoneInput}
-                  placeholder="Enter your email"
-                  value={email}
-                  onChange={e => setEmail(e.target.value)}
-                  required
-                />
-                <label htmlFor="password" className={styles.phoneLabel}>Password</label>
-                <input
-                  id="password"
-                  type="password"
-                  className={styles.phoneInput}
-                  placeholder="Enter your password"
-                  value={password}
-                  onChange={e => setPassword(e.target.value)}
-                  required
-                />
-                <button type="submit" className={styles.otpButton}>Login with Email</button>
+              <form onSubmit={handleEmailLogin} className={styles.form}>
+                <div className={styles.inputGroup}>
+                  <label htmlFor="email" className={styles.inputLabel}>Email</label>
+                  <input
+                    id="email"
+                    type="email"
+                    className={styles.textInput}
+                    placeholder="Enter your email"
+                    value={email}
+                    onChange={e => setEmail(e.target.value)}
+                    required
+                  />
+                </div>
+                <div className={styles.inputGroup}>
+                  <label htmlFor="password" className={styles.inputLabel}>Password</label>
+                  <input
+                    id="password"
+                    type="password"
+                    className={styles.textInput}
+                    placeholder="Enter your password"
+                    value={password}
+                    onChange={e => setPassword(e.target.value)}
+                    required
+                  />
+                </div>
+                <button type="submit" className={styles.primaryButton}>Login with Email</button>
               </form>
             )}
-            <div id="recaptcha-container" style={{ marginTop: 16 }} />
+            <div id="recaptcha-container" className={styles.recaptchaContainer} />
             <div className={styles.terms}>
               By continuing, you agree to our Terms of Service and Privacy Policy.
             </div>

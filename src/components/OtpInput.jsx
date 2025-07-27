@@ -54,12 +54,15 @@ export default function OtpInput({ length = 6, onComplete, onOtpChange }) {
   };
 
   useEffect(() => {
-    if (otp.join("").length === length) {
-      onComplete(otp.join(""));
-    } else {
-      onComplete(otp.join("")); // Always call onComplete for partial input too
+    const otpString = otp.join("");
+    if (onOtpChange) {
+      onOtpChange(otpString);
     }
-  }, [otp, length, onComplete]);
+    // Only call onComplete when OTP is fully entered
+    if (otpString.length === length) {
+      onComplete(otpString);
+    }
+  }, [otp, length, onComplete, onOtpChange]);
 
   return (
     <div style={{

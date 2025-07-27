@@ -1,10 +1,12 @@
 import { useState, useEffect, useRef } from "react";
+import { doc, onSnapshot } from "firebase/firestore";
+import { db } from "../firebase/config";
 import Loading from "../components/Loading";
 import CustomCalendar from "../components/CustomCalendar";
 import { useNavigate, Link } from 'react-router-dom';
 import GameSelector from "../components/GameSelector";
 import SlotGrid from "../components/SlotGrid";
-import { gameService, slotService, bookingService, realtimeService } from "../firebase/services";
+import { gameService, slotService, bookingService, realtimeService, offlineBookingService } from "../firebase/services";
 import { userService } from "../firebase/services";
 import { auth } from "../firebase/config";
 import { onAuthStateChanged, signOut } from "firebase/auth";
@@ -29,6 +31,7 @@ export default function UserPanel() {
   const [bookings, setBookings] = useState([]);
   const [activeTab, setActiveTab] = useState('calendar');
   const [user, setUser] = useState(null);
+  const userDocUnsub = useRef(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
   const [currentUser, setCurrentUser] = useState(null);
@@ -51,11 +54,12 @@ export default function UserPanel() {
 
   // Real-time listener refs
   const userBookingsUnsub = useRef(null);
+  const offlineBookingsUnsub = useRef(null);
 
   // Helper function to show toasts based on type
   const showToast = createToastHelper({ showSuccess, showError, showInfo });
 
-  // Check authentication
+  // Check authentication and set up listeners for both online and offline bookings
   useEffect(() => {
     const unsubscribe = onAuthStateChanged(auth, async (user) => {
       if (!user) {
@@ -80,7 +84,33 @@ export default function UserPanel() {
           navigate('/login');
           return;
         }
-        // Load user data and bookings
+        // Set up real-time listener for user document
+        if (userDocUnsub.current) {
+          userDocUnsub.current();
+          userDocUnsub.current = null;
+        }
+        if (userData && userData.id) {
+          userDocUnsub.current = onSnapshot(
+            doc(db, 'users', userData.id),
+            (docSnap) => {
+              if (docSnap.exists()) {
+                const data = docSnap.data();
+                setUser({
+                  mobile: data.mobile || user.email,
+                  name: data.name || user.displayName || 'User',
+                  streak: data.streak || 0,
+                  clubCoins: data.clubCoins || 0
+                });
+              }
+            },
+            (error) => {
+              console.error('Error listening to user doc:', error);
+            }
+          );
+        } else {
+          setUser(null);
+        }
+        // Load user data and bookings (online + offline)
         loadUserData(user);
       }
     });
@@ -95,6 +125,18 @@ export default function UserPanel() {
           console.error('Error cleaning up user bookings listener:', error);
         }
       }
+      if (offlineBookingsUnsub.current) {
+        try {
+          offlineBookingsUnsub.current();
+          offlineBookingsUnsub.current = null;
+        } catch (error) {
+          console.error('Error cleaning up offline bookings listener:', error);
+        }
+      }
+      if (userDocUnsub.current) {
+        userDocUnsub.current();
+        userDocUnsub.current = null;
+      }
     };
   }, [navigate]);
 
@@ -107,45 +149,45 @@ export default function UserPanel() {
       if (mobile && mobile.startsWith('+91')) {
         mobile = mobile.slice(3);
       }
-      
       // Clean up any existing listener before setting up new one
       if (userBookingsUnsub.current) {
-        try {
-          userBookingsUnsub.current();
-        } catch (error) {
-          console.error('Error cleaning up previous listener:', error);
-        }
+        try { userBookingsUnsub.current(); } catch (error) { console.error('Error cleaning up previous listener:', error); }
         userBookingsUnsub.current = null;
       }
-      
-      // Setup real-time listener for user bookings
+      if (offlineBookingsUnsub.current) {
+        try { offlineBookingsUnsub.current(); } catch (error) { console.error('Error cleaning up previous offline listener:', error); }
+        offlineBookingsUnsub.current = null;
+      }
+      // Setup real-time listener for user bookings (online)
       const userId = mobile || user.email;
+      let onlineBookings = [];
+      let offlineBookings = [];
       userBookingsUnsub.current = realtimeService.onUserBookingsChange(userId, (userBookings) => {
-        // Check if component is still mounted and user is still authenticated
-        if (!auth.currentUser) {
-          return;
-        }
-        
-        console.log('Real-time user bookings updated:', userBookings.length);
-        setBookings(userBookings);
-        if (userBookings.length > 0) {
-          // Show toast for new bookings (avoid showing on initial load)
-          const now = Date.now();
-          const recentBookings = userBookings.filter(booking => {
-            const bookingDate = new Date(booking.createdAt?.seconds ? booking.createdAt.seconds * 1000 : booking.createdAt);
-            return (now - bookingDate.getTime()) < 5000; // Less than 5 seconds old
-          });
-          
-          if (recentBookings.length > 0 && !loading) {
-            showToast(`${recentBookings.length} booking(s) updated in real-time!`, 'info');
-          }
-        }
+        onlineBookings = userBookings || [];
+        updateCombinedBookings();
       });
-      
+      // Setup real-time listener for user offline bookings
+      offlineBookingsUnsub.current = offlineBookingService.onOfflineBookingsChange((allOfflineBookings) => {
+        // Only include offline bookings for this user
+        offlineBookings = (allOfflineBookings || []).filter(b => b.userId === userId);
+        updateCombinedBookings();
+      });
+      // Helper to merge and set bookings
+      function updateCombinedBookings() {
+        // Add a type field for clarity
+        const online = (onlineBookings || []).map(b => ({ ...b, type: 'online' }));
+        const offline = (offlineBookings || []).map(b => ({ ...b, type: 'offline' }));
+        // Merge and sort by date/time desc
+        const all = [...online, ...offline].sort((a, b) => {
+          const aDate = new Date(a.date + 'T' + (a.time || a.startTime || '00:00'));
+          const bDate = new Date(b.date + 'T' + (b.time || b.startTime || '00:00'));
+          return bDate - aDate;
+        });
+        setBookings(all);
+      }
       // Load games for editing
       const allGames = await gameService.getAllGames();
       setGames(allGames);
-      
       // Get user data from Firestore (including name)
       let userData;
       if (mobile) {
@@ -213,11 +255,9 @@ export default function UserPanel() {
       );
     })
     .sort((a, b) => {
-      if (sortOrder === "desc") {
-        return new Date(b.date + 'T' + b.time) - new Date(a.date + 'T' + a.time);
-      } else {
-        return new Date(a.date + 'T' + a.time) - new Date(b.date + 'T' + b.time);
-      }
+      const aDate = new Date(a.date + 'T' + (a.time || a.startTime || '00:00'));
+      const bDate = new Date(b.date + 'T' + (b.time || b.startTime || '00:00'));
+      return sortOrder === "desc" ? bDate - aDate : aDate - bDate;
     });
 
   // Calculate streak and club coins from user data
@@ -647,6 +687,10 @@ export default function UserPanel() {
                 <p><strong>Date:</strong> {detailsBooking.date}</p>
                 <p><strong>Time:</strong> {detailsBooking.time}</p>
                 <p><strong>Status:</strong> <span className={`badge ${detailsBooking.status === 'Cancelled' ? 'bg-danger' : detailsBooking.status === 'Pending' ? 'bg-warning text-dark' : 'bg-success'}`}>{detailsBooking.status || 'Confirmed'}</span></p>
+                <p><strong>🪙 Coins Earned:</strong> {(() => {
+                  const gameData = games.find(g => g.id === detailsBooking.game || g.name === detailsBooking.game);
+                  return (detailsBooking.status === 'Cancelled' ? 0 : gameData?.coins || 0);
+                })()}</p>
                 {/* Add more info as needed */}
               </div>
               <div className="modal-footer">

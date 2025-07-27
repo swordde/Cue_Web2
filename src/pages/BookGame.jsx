@@ -1,5 +1,13 @@
 // src/pages/BookGame.jsx
 import { useState, useEffect, useRef, useCallback } from "react";
+// Helper to format date as YYYY-MM-DD in local time
+function formatLocalDate(date) {
+  if (!date) return '';
+  const year = date.getFullYear();
+  const month = String(date.getMonth() + 1).padStart(2, '0');
+  const day = String(date.getDate()).padStart(2, '0');
+  return `${year}-${month}-${day}`;
+}
 import Loading from "../components/Loading";
 import { userService } from "../firebase/services";
 import GameSelector from "../components/GameSelector";
@@ -17,6 +25,9 @@ import styles from './BookGame.module.css';
 export default function BookGame() {
   const [games, setGames] = useState([]);
   const [selectedGame, setSelectedGame] = useState('');
+  const [numPlayers, setNumPlayers] = useState(1);
+  const [maxPlayers, setMaxPlayers] = useState(1);
+  const [coinsReward, setCoinsReward] = useState(0);
   const [selectedDate, setSelectedDate] = useState(null);
   const [selectedSlots, setSelectedSlots] = useState([]);
   const [slots, setSlots] = useState([]);
@@ -78,36 +89,48 @@ export default function BookGame() {
       slots: slots,
       allBookings: allBookings,
       offlineBookings: offlineBookings,
-      selectedDate: selectedDate?.toISOString().split('T')[0],
+      selectedDate: selectedDate ? formatLocalDate(selectedDate) : undefined,
       selectedGameId: selectedGame
     });
     
     return slots.map((slot, index) => {
       const slotTime = typeof slot === 'string' ? slot : slot.time;
-      
       // Check if this slot is already booked by ANY user (not cancelled)
-      const isBookedOnline = allBookings.some(booking => 
-        booking.time === slotTime && 
-        booking.status !== 'Cancelled'
-      );
-      
+      const slotDateStr = selectedDate ? formatLocalDate(selectedDate) : '';
+      const isBookedOnline = allBookings.some(booking => {
+        const bookingDateStr = booking.date ? booking.date : '';
+        return booking.time === slotTime && booking.status !== 'Cancelled' && bookingDateStr === slotDateStr;
+      });
       // Check if this slot is occupied by offline bookings
       const isBookedOffline = checkOfflineBookingConflict(slotTime);
-      
       const isBooked = isBookedOnline || isBookedOffline;
-      
-      console.log(`Slot ${slotTime}: isBooked=${isBooked} (online: ${isBookedOnline}, offline: ${isBookedOffline})`, {
-        slotTime,
-        matchingOnlineBookings: allBookings.filter(b => b.time === slotTime && b.status !== 'Cancelled'),
-        conflictingOfflineBookings: offlineBookings.filter(b => checkTimeOverlap(slotTime, b))
-      });
-      
+
+      // Determine if slot is expired (in the past for today)
+      let isExpired = false;
+      if (selectedDate) {
+        const now = new Date();
+        const todayStr = formatLocalDate(now);
+        const slotDateStr = formatLocalDate(selectedDate);
+        if (slotDateStr === todayStr) {
+          // Compare slot time to now
+          const nowMinutes = now.getHours() * 60 + now.getMinutes();
+          const slotMinutes = timeToMinutes(slotTime);
+          if (slotMinutes < nowMinutes) {
+            isExpired = true;
+          }
+        } else if (selectedDate < new Date(now.getFullYear(), now.getMonth(), now.getDate())) {
+          // If selected date is before today, mark as expired
+          isExpired = true;
+        }
+      }
+
       return {
         id: index + 1,
         time24: slotTime,
         time12: slotTime,
-        available: !isBooked,
-        isBookedOffline: isBookedOffline
+        available: !isBooked, // Still allow booking even if expired
+        isBookedOffline: isBookedOffline,
+        isExpired: isExpired
       };
     });
   };
@@ -116,7 +139,7 @@ export default function BookGame() {
   const checkOfflineBookingConflict = (slotTime) => {
     if (!selectedDate || !selectedGame || !offlineBookings.length) return false;
     
-    const selectedDateStr = selectedDate.toISOString().split('T')[0];
+    const selectedDateStr = formatLocalDate(selectedDate);
     
     // Find the selected game
     const selectedGameObj = games.find(g => g.id === selectedGame);
@@ -128,7 +151,6 @@ export default function BookGame() {
       if (booking.date !== selectedDateStr) return false;
       if (booking.board !== selectedGame && booking.board !== selectedGameObj.name) return false;
       if (booking.status === 'CLOSE') return false; // Closed bookings don't occupy the table
-      
       // Check time overlap
       return checkTimeOverlap(slotTime, booking);
     });
@@ -231,11 +253,13 @@ export default function BookGame() {
         await bookingService.createBooking({
           game: selectedGameObj, // Use the full game object
           gameId: selectedGame, // Use the game ID string
-          date: selectedDate.toISOString().split('T')[0],
+          date: formatLocalDate(selectedDate),
           time: slot.time12,
           user: userId,
           status: 'Pending',
           createdAt: new Date().toISOString(),
+          numPlayers,
+          coinsAwarded: coinsReward,
         });
       }
 
@@ -382,23 +406,20 @@ export default function BookGame() {
     }
     
     if (selectedGame && selectedDate) {
-      const dateString = selectedDate.toISOString().split('T')[0];
+      const dateString = formatLocalDate(selectedDate);
       console.log('Setting up listeners for:', dateString, selectedGame);
-      
       // Setup slots listener
       slotsUnsub.current = slotService.onSlotsChange(dateString, selectedGame, (slotList) => {
         console.log('Slots updated:', slotList.length);
         setSlots(slotList);
         setLoading(false);
       });
-      
       // Setup all bookings listener for this date and game
       allBookingsUnsub.current = realtimeService.onBookingsByDateAndGameChange(dateString, selectedGame, (bookings) => {
         console.log('All bookings updated for', dateString, selectedGame, ':', bookings.length);
         console.log('Bookings data:', bookings);
         setAllBookings(bookings);
       });
-
       // Setup real-time offline bookings listener
       offlineBookingsUnsub.current = offlineBookingService.onOfflineBookingsChange((allOfflineBookings) => {
         // Filter for the selected date - we need all games for this date to check conflicts
@@ -429,6 +450,25 @@ export default function BookGame() {
 
   const selectedGameObj = games.find(g => g.id === selectedGame);
 
+  // Update maxPlayers when game changes
+  useEffect(() => {
+    if (selectedGameObj) {
+      setMaxPlayers(selectedGameObj.maxPlayers || 1);
+      setNumPlayers(1);
+    }
+  }, [selectedGameObj]);
+
+  // Calculate coins reward when numPlayers or selectedGame changes
+  useEffect(() => {
+    if (selectedGameObj && numPlayers) {
+      // Example: 10 coins per player, or use selectedGameObj.coinsPerPlayer if available
+      const coinsPerPlayer = selectedGameObj.coinsPerPlayer || 10;
+      setCoinsReward(numPlayers * coinsPerPlayer);
+    } else {
+      setCoinsReward(0);
+    }
+  }, [selectedGameObj, numPlayers]);
+
   // Handle booking
   const handleBooking = async () => {
     if (!currentUser) {
@@ -450,13 +490,13 @@ export default function BookGame() {
       await bookingService.createBooking({
         game: selectedGameObj,
         gameId: selectedGameObj?.id, // Add separate gameId for easier querying
-        date: selectedDate,
+        date: formatLocalDate(selectedDate),
         time: selectedTime,
         user: userId,
         status: 'Pending',
         createdAt: new Date().toISOString(),
       });
-      setAlert({ message: `Booking successful!\nGame: ${selectedGameObj?.name}\nDate: ${selectedDate}\nTime: ${selectedTime}` , type: 'success' });
+      setAlert({ message: `Booking successful!\nGame: ${selectedGameObj?.name}\nDate: ${formatLocalDate(selectedDate)}\nTime: ${selectedTime}` , type: 'success' });
       setShowModal(false);
       // No need to manually refresh - real-time listener will update automatically
     } catch (err) {
@@ -577,7 +617,7 @@ export default function BookGame() {
           <span>🟢 Live occupancy status</span>
           <span style={{marginLeft: 'auto', fontSize: '0.75rem', opacity: 0.8}}>
             {allBookings.length + offlineBookings.filter(b => 
-              b.date === selectedDate.toISOString().split('T')[0] && 
+              b.date === formatLocalDate(selectedDate) && 
               (b.board === selectedGame || b.board === games.find(g => g.id === selectedGame)?.name) &&
               b.status !== 'CLOSE'
             ).length} active bookings
@@ -922,44 +962,46 @@ export default function BookGame() {
                       className={`${styles.timeSlot} 
                         ${slot.available ? styles.available : styles.booked}
                         ${slot.isBookedOffline ? styles.offlineBooked : ''}
+                        ${slot.isExpired ? styles.expired : ''}
                         ${selectedSlots.some(s => s.id === slot.id) ? styles.selected : ''}`}
                       onClick={() => handleSlotSelect(slot)}
                       style={{
                         padding: 'clamp(8px, 2.5vw, 12px)',
                         borderRadius: '8px',
                         textAlign: 'center',
-                        cursor: slot.available ? 'pointer' : 'not-allowed',
+                        cursor: 'pointer', // Always allow selection
                         minHeight: 'clamp(60px, 15vw, 80px)',
                         display: 'flex',
                         flexDirection: 'column',
                         justifyContent: 'center',
                         alignItems: 'center',
                         fontSize: 'clamp(0.7rem, 2.2vw, 0.9rem)',
-                        backgroundColor: slot.isBookedOffline ? 'rgba(255, 152, 0, 0.2)' : 
-                                       !slot.available ? 'rgba(220, 53, 69, 0.2)' : 
-                                       'rgba(25, 135, 84, 0.2)',
-                        borderColor: slot.isBookedOffline ? '#ff9800' : 
-                                   !slot.available ? '#dc3545' : 
-                                   '#198754',
+                        backgroundColor: slot.isExpired ? 'rgba(158, 158, 158, 0.2)'
+                          : slot.isBookedOffline ? 'rgba(255, 152, 0, 0.2)'
+                          : !slot.available ? 'rgba(220, 53, 69, 0.2)'
+                          : 'rgba(25, 135, 84, 0.2)',
+                        borderColor: slot.isExpired ? '#9e9e9e'
+                          : slot.isBookedOffline ? '#ff9800'
+                          : !slot.available ? '#dc3545'
+                          : '#198754',
                         borderWidth: '2px',
                         borderStyle: 'solid'
                       }}
-                      title={slot.isBookedOffline ? 'Occupied by Offline Booking' : 
-                             !slot.available ? 'Booked Online' : 
-                             'Available for Booking'}
+                      title={slot.isExpired ? 'Expired (Past Slot)' : slot.isBookedOffline ? 'Occupied by Offline Booking' : !slot.available ? 'Booked Online' : 'Available for Booking'}
                     >
                       <span className={styles.slotTime} style={{
                         fontSize: 'clamp(0.8rem, 2.5vw, 1rem)',
-                        fontWeight: 'bold'
+                        fontWeight: 'bold',
+                        color: slot.isExpired ? '#9e9e9e' : undefined
                       }}>
                         {slot.time12}
                       </span>
                       <span className={styles.slotStatus} style={{
                         fontSize: 'clamp(0.6rem, 2vw, 0.8rem)',
-                        marginTop: '2px'
+                        marginTop: '2px',
+                        color: slot.isExpired ? '#9e9e9e' : undefined
                       }}>
-                        {slot.available ? '30 min' : 
-                         slot.isBookedOffline ? 'Occupied' : 'Booked'}
+                        {slot.isExpired ? 'Expired' : slot.available ? '30 min' : slot.isBookedOffline ? 'Occupied' : 'Booked'}
                       </span>
                       {slot.isBookedOffline && (
                         <span style={{
@@ -1102,6 +1144,34 @@ export default function BookGame() {
                       <span className={styles.summaryLabel}>Game:</span>
                       <span className={styles.summaryValue}>{games.find(g => g.id === selectedGame)?.name}</span>
                     </div>
+                    {selectedGameObj && (
+                      <div className={styles.summaryItem} style={{
+                        display: 'flex',
+                        justifyContent: 'space-between',
+                        gridColumn: '1 / -1'
+                      }}>
+                        <span className={styles.summaryLabel}>Max Players:</span>
+                        <span className={styles.summaryValue}>{selectedGameObj.maxPlayers || 1}</span>
+                      </div>
+                    )}
+                    <div className={styles.summaryItem} style={{
+                      display: 'flex',
+                      justifyContent: 'space-between',
+                      gridColumn: '1 / -1'
+                    }}>
+                      <span className={styles.summaryLabel}>Players:</span>
+                      <span className={styles.summaryValue}>{numPlayers}</span>
+                    </div>
+                    <div className={styles.summaryItem} style={{
+                      display: 'flex',
+                      justifyContent: 'space-between',
+                      gridColumn: '1 / -1',
+                      color: '#ffc107',
+                      fontWeight: 'bold'
+                    }}>
+                      <span className={styles.summaryLabel}>Coins Reward:</span>
+                      <span className={styles.summaryValue}>{coinsReward}</span>
+                    </div>
                     <div className={styles.summaryItem} style={{
                       display: 'flex',
                       justifyContent: 'space-between',
@@ -1185,6 +1255,23 @@ export default function BookGame() {
                   >
                     Review Booking (₹{calculateTotalPrice()})
                   </button>
+
+                  {/* Players selection and coins reward display */}
+                  {selectedGameObj && (
+                    <div style={{ marginTop: 16 }}>
+                      <label style={{ fontWeight: 500, marginRight: 8 }}>Number of Players (max {maxPlayers}):</label>
+                      <select
+                        value={numPlayers}
+                        onChange={e => setNumPlayers(Number(e.target.value))}
+                        style={{ padding: '4px 8px', borderRadius: 6, border: '1px solid #ffc107', marginRight: 12 }}
+                      >
+                        {Array.from({ length: maxPlayers }, (_, i) => i + 1).map(n => (
+                          <option key={n} value={n}>{n}</option>
+                        ))}
+                      </select>
+                      <span style={{ color: '#ffc107', fontWeight: 600 }}>Coins: {coinsReward}</span>
+                    </div>
+                  )}
                 </div>
               )}
             </div>

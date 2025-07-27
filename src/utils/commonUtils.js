@@ -51,6 +51,28 @@ export const normalizePhoneNumber = (phoneNumber) => {
 };
 
 /**
+ * Formats date consistently for storage (avoiding timezone issues)
+ * @param {Date} date - Date object to format
+ * @returns {string} - Date string in YYYY-MM-DD format using local time
+ */
+export const formatDateForStorage = (date) => {
+  if (!date) return null;
+  // Use local date formatting to avoid timezone issues
+  const year = date.getFullYear();
+  const month = String(date.getMonth() + 1).padStart(2, '0');
+  const day = String(date.getDate()).padStart(2, '0');
+  return `${year}-${month}-${day}`;
+};
+
+/**
+ * Gets today's date in the consistent format
+ * @returns {string} - Today's date in YYYY-MM-DD format
+ */
+export const getTodayDateString = () => {
+  return formatDateForStorage(new Date());
+};
+
+/**
  * Common authentication check and user data loading logic
  * @param {object} user - Firebase user object
  * @param {function} navigate - React Router navigate function

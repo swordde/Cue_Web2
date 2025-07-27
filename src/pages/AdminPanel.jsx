@@ -6,6 +6,7 @@ import GameBookingsChart from "../components/GameBookingsChart";
 import WeeklyLineChart from "../components/WeeklyLineChart";
 import GameAnalyticsChart from "../components/GameAnalyticsChart";
 import CurrentOccupancy from "../components/CurrentOccupancy";
+import AdminPhoneLookupModal from "../components/AdminPhoneLookupModal";
 
 import { userService } from "../firebase/services";
 import { useNavigate } from "react-router-dom";
@@ -16,6 +17,7 @@ import { auth } from "../firebase/config";
 import { onAuthStateChanged, signOut, getIdTokenResult } from "firebase/auth";
 import { useToast } from "../contexts/ToastContext";
 import toast from 'react-hot-toast';
+import { formatDateForStorage } from '../utils/commonUtils';
 
 
 
@@ -48,6 +50,15 @@ export default function AdminPanel() {
   const [addUserLoading, setAddUserLoading] = useState(false);
   const [addUserError, setAddUserError] = useState('');
   const [addUserSuccess, setAddUserSuccess] = useState('');
+  // Phone lookup states for Add User form
+  const [adminLookupLoading, setAdminLookupLoading] = useState(false);
+  const [adminFetchedUser, setAdminFetchedUser] = useState(null);
+  const [adminIsUserFound, setAdminIsUserFound] = useState(false);
+  // Phone lookup states for offline booking
+  const [offlineBookingLookupLoading, setOfflineBookingLookupLoading] = useState(false);
+  const [offlineBookingFetchedUser, setOfflineBookingFetchedUser] = useState(null);
+  // Phone lookup modal state
+  const [showPhoneLookupModal, setShowPhoneLookupModal] = useState(false);
   // Add user handler
   const handleAddUser = async () => {
     setAddUserError('');
@@ -87,6 +98,106 @@ export default function AdminPanel() {
       setAddUserLoading(false);
     }
   };
+
+  // Function to fetch user details by phone number for Admin panel
+  const adminFetchUserByPhone = async (phoneNumber) => {
+    if (!phoneNumber || phoneNumber.length < 10) {
+      setAdminFetchedUser(null);
+      setAdminIsUserFound(false);
+      return;
+    }
+
+    setAdminLookupLoading(true);
+    try {
+      const existingUser = await userService.getUserByMobile(phoneNumber);
+      if (existingUser) {
+        setAdminFetchedUser(existingUser);
+        setAdminIsUserFound(true);
+      } else {
+        setAdminFetchedUser(null);
+        setAdminIsUserFound(false);
+      }
+    } catch (error) {
+      console.error('Error fetching user in admin:', error);
+      setAdminFetchedUser(null);
+      setAdminIsUserFound(false);
+    } finally {
+      setAdminLookupLoading(false);
+    }
+  };
+
+  // Handle mobile number change with user lookup for Admin panel
+  const handleAdminMobileChange = (value) => {
+    const cleanValue = value.replace(/\D/g, "");
+    setNewUser({ ...newUser, mobile: cleanValue });
+    
+    // Auto-fetch user when mobile number is complete (10 digits)
+    if (cleanValue.length === 10) {
+      adminFetchUserByPhone(cleanValue);
+    } else {
+      setAdminFetchedUser(null);
+      setAdminIsUserFound(false);
+    }
+  };
+
+  // Function to fetch user details by phone number for offline booking
+  const fetchUserByPhoneForOfflineBooking = async (phoneNumber) => {
+    if (!phoneNumber || phoneNumber.length < 10) {
+      setOfflineBookingFetchedUser(null);
+      return;
+    }
+
+    setOfflineBookingLookupLoading(true);
+    try {
+      const existingUser = await userService.getUserByMobile(phoneNumber);
+      if (existingUser) {
+        setOfflineBookingFetchedUser(existingUser);
+        // Auto-fill customer name if user found
+        setNewOfflineBooking({
+          ...newOfflineBooking, 
+          customerName: existingUser.name || existingUser.username,
+          customerPhone: phoneNumber
+        });
+        showSuccess(`User found: ${existingUser.name || existingUser.username}`);
+      } else {
+        setOfflineBookingFetchedUser(null);
+        showInfo('Phone number not found in database');
+      }
+    } catch (error) {
+      console.error('Error fetching user for offline booking:', error);
+      setOfflineBookingFetchedUser(null);
+    } finally {
+      setOfflineBookingLookupLoading(false);
+    }
+  };
+
+  // Handle phone input for offline booking
+  const handleOfflineBookingPhoneChange = (phoneNumber) => {
+    const cleanValue = phoneNumber.replace(/\D/g, "");
+    
+    if (cleanValue.length === 10) {
+      fetchUserByPhoneForOfflineBooking(cleanValue);
+    } else {
+      setOfflineBookingFetchedUser(null);
+    }
+  };
+
+  // Reset fetched user data when form is reset
+  const resetOfflineBookingUserData = () => {
+    setOfflineBookingFetchedUser(null);
+    setOfflineBookingLookupLoading(false);
+  };
+
+  // Handle user selection from phone lookup modal
+  const handleUserSelectedFromModal = (user) => {
+    setNewOfflineBooking({
+      ...newOfflineBooking,
+      customerName: user.name || user.username,
+      customerPhone: user.mobile
+    });
+    setOfflineBookingFetchedUser(user);
+    showSuccess(`Selected user: ${user.name || user.username}`);
+  };
   const navigate = useNavigate();
   const [filterGame, setFilterGame] = useState('');
   const [filterDate, setFilterDate] = useState('');
@@ -115,7 +226,9 @@ export default function AdminPanel() {
     "06:00 PM", "06:30 PM", "07:00 PM", "07:30 PM", "08:00 PM", "08:30 PM", 
     "09:00 PM", "09:30 PM", "10:00 PM", "10:30 PM", "11:00 PM", "11:30 PM", "12:00 AM"
   ];
-  const [newGame, setNewGame] = useState({ name: "", price: 0, category: "", isActive: true });
+  const [newGame, setNewGame] = useState({ name: "", price: 0, category: "", coins: 10, maxPlayers: 2, isActive: true });
+  const [editingGame, setEditingGame] = useState(null);
+  const [editGameData, setEditGameData] = useState({ name: "", price: 0, category: "", coins: 0, maxPlayers: 2, isActive: true });
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
   const [currentUser, setCurrentUser] = useState(null);
@@ -130,6 +243,7 @@ export default function AdminPanel() {
   const [newOfflineBooking, setNewOfflineBooking] = useState({
     slNo: 1,
     customerName: '',
+    customerPhone: '', // Add phone field
     board: '',
     status: 'OPEN',
     amount: 0,
@@ -137,7 +251,7 @@ export default function AdminPanel() {
     cashAmount: 0,
     gpayAmount: 0,
     settlement: 'SETTLED',
-    date: new Date().toISOString().split('T')[0], // Auto-set today's date
+    date: formatDateForStorage(new Date()), // Auto-set today's date
     startTime: '',
     endTime: '',
     duration: 1,
@@ -393,7 +507,7 @@ export default function AdminPanel() {
     for (let i = 13; i >= 0; i--) {
       const date = new Date(today);
       date.setDate(date.getDate() - i);
-      const dateStr = date.toISOString().split('T')[0];
+      const dateStr = formatDateForStorage(date);
       dates.push(dateStr);
       organized[dateStr] = [];
     }
@@ -540,7 +654,7 @@ export default function AdminPanel() {
             setAvailableDates(dates);
             
             // Generate smart serial number for current selected date
-            const currentDate = newOfflineBooking.date || new Date().toISOString().split('T')[0];
+            const currentDate = newOfflineBooking.date || formatDateForStorage(new Date());
             const smartSerial = generateSmartSerialNumber(currentDate);
             setSmartSerialNumber(smartSerial);
             
@@ -757,8 +871,13 @@ export default function AdminPanel() {
     if (!selectedDate || !selectedGames.length || !selectedTimeSlots.length) return;
     setLoading(true);
     try {
+      // Always use local YYYY-MM-DD string for slot date
+      let dateString = selectedDate;
+      if (selectedDate instanceof Date) {
+        dateString = formatDateForStorage(selectedDate);
+      }
       for (const gameId of selectedGames) {
-        await slotService.addSlotsForDate(selectedDate, gameId, selectedTimeSlots);
+        await slotService.addSlotsForDate(dateString, gameId, selectedTimeSlots);
       }
       showSuccess(`Added ${selectedTimeSlots.length} slot(s) to ${selectedGames.length} game(s)!`);
       await loadSlots();
@@ -778,12 +897,47 @@ export default function AdminPanel() {
       await gameService.addGame(newGame);
       const allGames = await gameService.getAllGames();
       setGames(allGames);
-      setNewGame({ name: "", price: 0, category: "", isActive: true });
+      setNewGame({ name: "", price: 0, category: "", coins: 10, isActive: true });
     } catch (err) {
       setError("Failed to add game");
     } finally {
       setLoading(false);
     }
+  };
+
+  // Start editing a game
+  const handleEditGame = (game) => {
+    setEditingGame(game.id);
+    setEditGameData({
+      name: game.name,
+      price: game.price,
+      category: game.category,
+      coins: game.coins || 0,
+      isActive: game.isActive
+    });
+  };
+
+  // Save edited game
+  const handleSaveEditGame = async () => {
+    setLoading(true);
+    try {
+      await gameService.updateGame(editingGame, editGameData);
+      setGames(games.map(g => g.id === editingGame ? { ...g, ...editGameData } : g));
+      setEditingGame(null);
+      setEditGameData({ name: "", price: 0, category: "", coins: 0, isActive: true });
+      showSuccess("Game updated successfully!");
+    } catch (err) {
+      setError("Failed to update game");
+      showError("Failed to update game");
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  // Cancel editing
+  const handleCancelEditGame = () => {
+    setEditingGame(null);
+    setEditGameData({ name: "", price: 0, category: "", coins: 0, isActive: true });
   };
 
   const handleDeleteGame = async (gameId) => {
@@ -1171,13 +1325,14 @@ export default function AdminPanel() {
     setEditingBookingId(null);
     
     // Reset form values to prevent NaN issues
-    const currentDate = new Date().toISOString().split('T')[0];
+    const currentDate = formatDateForStorage(new Date());
     const smartSerial = generateSmartSerialNumber(currentDate);
     setSmartSerialNumber(smartSerial);
     
     setNewOfflineBooking({
       slNo: smartSerial,
       customerName: '',
+      customerPhone: '', // Reset phone field
       board: '',
       status: 'OPEN',
       amount: 0,
@@ -1191,6 +1346,7 @@ export default function AdminPanel() {
       duration: 1,
       notes: ''
     });
+    resetOfflineBookingUserData(); // Clear user lookup data
   };
 
   const handleAddOfflineBooking = async () => {
@@ -1211,21 +1367,59 @@ export default function AdminPanel() {
         console.log('Updating booking:', editingBookingId);
         // Update existing booking
         const bookingUpdates = { ...newOfflineBooking };
+        // Always store date as formatted string
+        if (bookingUpdates.date instanceof Date) {
+          bookingUpdates.date = formatDateForStorage(bookingUpdates.date);
+        }
         delete bookingUpdates.id; // Remove ID from updates object
         delete bookingUpdates.createdAt; // Don't update creation timestamp
-        
         await offlineBookingService.updateOfflineBooking(editingBookingId, bookingUpdates);
         showSuccess('Booking updated successfully!');
       } else {
         console.log('Creating new booking for:', newOfflineBooking.customerName);
         // Create new booking
+        // Find user by name (since offline bookings use names, not mobile numbers)
+        let userId = '';
+        let coinsAwarded = 0;
+        if (newOfflineBooking.customerName && newOfflineBooking.board) {
+          try {
+            const allUsers = await userService.getAllUsers();
+            const customer = allUsers.find(user => 
+              user.name && user.name.toLowerCase() === newOfflineBooking.customerName.toLowerCase()
+            );
+            if (customer) {
+              userId = customer.mobile || customer.email || '';
+              // Get game details to find coin reward
+              const game = games.find(g => g.name === newOfflineBooking.board);
+              coinsAwarded = game?.coins || 0;
+              if (coinsAwarded > 0) {
+                const currentCoins = customer.clubCoins || 0;
+                // Update user coins
+                await userService.updateUser(customer.id || customer.mobile, {
+                  clubCoins: currentCoins + coinsAwarded,
+                  updatedAt: new Date().toISOString()
+                });
+                console.log(`🪙 Offline Booking: Awarded ${coinsAwarded} coins to ${customer.name} (${customer.mobile})`);
+                showInfo(`🪙 ${coinsAwarded} coins awarded to ${customer.name}!`);
+              }
+            }
+          } catch (coinError) {
+            console.error('Error awarding coins for offline booking:', coinError);
+            // Don't fail the booking if coin awarding fails
+          }
+        }
         const booking = {
           ...newOfflineBooking,
+          // Always store date as formatted string
+          date: (newOfflineBooking.date instanceof Date)
+            ? formatDateForStorage(newOfflineBooking.date)
+            : newOfflineBooking.date,
           slNo: newOfflineBooking.slNo || (offlineBookings.length + 1),
           createdBy: adminName,
-          type: 'offline'
+          type: 'offline',
+          userId,
+          coinsAwarded
         };
-
         const savedBooking = await offlineBookingService.addOfflineBooking(booking);
         console.log('New booking created with ID:', savedBooking.id);
         showSuccess('Booking entry saved to server successfully!');
@@ -1266,7 +1460,7 @@ export default function AdminPanel() {
       cashAmount: 0,
       gpayAmount: 0,
       settlement: 'PENDING',
-      date: new Date().toISOString().split('T')[0],
+      date: formatDateForStorage(new Date()),
       startTime: startTime,
       endTime: endTime,
       duration: duration,
@@ -1356,6 +1550,7 @@ export default function AdminPanel() {
     setNewOfflineBooking({
       slNo: offlineBookings.length + (isEditingOfflineBooking ? 1 : 2),
       customerName: '',
+      customerPhone: '', // Reset phone field
       board: '',
       status: 'OPEN',
       amount: 0,
@@ -1363,7 +1558,7 @@ export default function AdminPanel() {
       cashAmount: 0,
       gpayAmount: 0,
       settlement: 'SETTLED',
-      date: new Date().toISOString().split('T')[0],
+      date: formatDateForStorage(new Date()),
       startTime: '',
       endTime: '',
       duration: 1,
@@ -1371,6 +1566,7 @@ export default function AdminPanel() {
     });
     setIsEditingOfflineBooking(false);
     setEditingBookingId(null);
+    resetOfflineBookingUserData(); // Clear user lookup data
   };
 
   const handleDeleteOfflineBooking = async (bookingId) => {
@@ -1482,8 +1678,16 @@ export default function AdminPanel() {
 
   return (
     <div className={`container-fluid px-2 px-md-3 ${theme === 'dark' ? 'admin-dark bg-dark text-light' : 'admin-light bg-light text-dark'} min-vh-100`} style={{overflowX: 'hidden', overflowY: 'auto', maxHeight: '100vh'}}>
-      <div className="mb-3 mt-2 text-center text-md-start px-1 px-md-0">
-        <h4 className="fw-bold text-lg md:text-2xl" style={{fontSize: '1.2rem', fontWeight: 600}}>{`Welcome, ${adminName}`}</h4>
+      <div className="mb-3 mt-2 d-flex justify-content-between align-items-center px-1 px-md-0">
+        <h4 className="fw-bold text-lg md:text-2xl mb-0" style={{fontSize: '1.2rem', fontWeight: 600}}>{`Welcome, ${adminName}`}</h4>
+        <button
+          className="btn btn-primary btn-sm"
+          onClick={() => setShowPhoneLookupModal(true)}
+          title="Quick Phone Lookup"
+        >
+          <i className="fas fa-search me-2"></i>
+          Phone Lookup
+        </button>
       </div>
       <div className="d-flex flex-column flex-md-row justify-content-between align-items-center mb-4 gap-2" style={{flexWrap: 'wrap'}}>
         <h2 className="mb-0 text-xl md:text-3xl" style={{fontSize: '1.5rem', fontWeight: 700}}>Admin Panel</h2>
@@ -1727,15 +1931,45 @@ export default function AdminPanel() {
               </div>
               <div className="mb-2">
                 <label className="form-label fw-semibold">Mobile <span className="text-danger">*</span></label>
-                <input
-                  type="text"
-                  className="form-control form-control-lg"
-                  value={newUser.mobile}
-                  onChange={e => setNewUser({ ...newUser, mobile: e.target.value })}
-                  disabled={addUserLoading}
-                  placeholder="Enter mobile number"
-                  style={{ borderRadius: 8 }}
-                />
+                <div style={{ position: 'relative' }}>
+                  <input
+                    type="text"
+                    className="form-control form-control-lg"
+                    value={newUser.mobile}
+                    onChange={e => handleAdminMobileChange(e.target.value)}
+                    disabled={addUserLoading}
+                    placeholder="Enter mobile number"
+                    maxLength={10}
+                    style={{ borderRadius: 8 }}
+                  />
+                  {adminLookupLoading && (
+                    <div style={{ 
+                      position: 'absolute', 
+                      right: '10px', 
+                      top: '50%', 
+                      transform: 'translateY(-50%)', 
+                      color: '#FFC107' 
+                    }}>
+                      🔍
+                    </div>
+                  )}
+                </div>
+                {/* Display existing user info */}
+                {adminFetchedUser && (
+                  <div className="alert alert-warning mt-2 mb-0" style={{ fontSize: '0.9rem' }}>
+                    ⚠️ User <strong>{adminFetchedUser.name || adminFetchedUser.username}</strong> already exists with this number!
+                    <br />
+                    <small>Email: {adminFetchedUser.email || 'Not provided'}</small>
+                    {adminFetchedUser.clubCoins !== undefined && (
+                      <><br /><small>Coins: {adminFetchedUser.clubCoins}</small></>
+                    )}
+                  </div>
+                )}
+                {newUser.mobile.length === 10 && !adminIsUserFound && !adminLookupLoading && (
+                  <div className="alert alert-success mt-2 mb-0" style={{ fontSize: '0.9rem' }}>
+                    ✅ Phone number available for registration!
+                  </div>
+                )}
               </div>
               <div className="mb-3">
                 <label className="form-label fw-semibold">Email</label>
@@ -1803,13 +2037,22 @@ export default function AdminPanel() {
             <div className="col-md-4 mb-2 d-flex align-items-end justify-content-between gap-2">
               <div className="w-100">
                 <label className="fw-semibold me-2">Search User:</label>
-                <input
-                  type="text"
-                  className="form-control"
-                  placeholder="Search by name or phone"
-                  value={search}
-                  onChange={e => setSearch(e.target.value)}
-                />
+                <div className="input-group">
+                  <input
+                    type="text"
+                    className="form-control"
+                    placeholder="Search by name or phone"
+                    value={search}
+                    onChange={e => setSearch(e.target.value)}
+                  />
+                  <button 
+                    className="btn btn-outline-primary"
+                    onClick={() => setShowPhoneLookupModal(true)}
+                    title="Advanced Phone Lookup"
+                  >
+                    <i className="fas fa-phone"></i>
+                  </button>
+                </div>
               </div>
               <button className={`btn ${theme === 'dark' ? 'btn-outline-success' : 'btn-outline-success'} ms-2`} onClick={handleExportCSV} disabled={filteredBookings.length === 0} title="Export filtered bookings to CSV">
                 Export CSV
@@ -2194,6 +2437,10 @@ export default function AdminPanel() {
                               <i className="fas fa-rupee-sign text-success me-1" style={{fontSize: '12px'}}></i>
                               <span className="fw-bold text-success">{game.price}/hr</span>
                             </div>
+                            <div className="d-flex align-items-center justify-content-center mb-2">
+                              <span className="text-warning me-1">🪙</span>
+                              <span className="fw-bold text-warning">{game.coins || 0} coins</span>
+                            </div>
                             {game.category && (
                               <span className="badge bg-primary bg-opacity-10 text-primary small">
                                 {game.category}
@@ -2241,7 +2488,7 @@ export default function AdminPanel() {
                             weekday: 'short',
                             month: 'short', 
                             day: 'numeric'
-                          })} {date === new Date().toISOString().split('T')[0] ? '(Today)' : ''}
+                          })} {date === formatDateForStorage(new Date()) ? '(Today)' : ''}
                         </option>
                       ))}
                     </select>
@@ -2704,6 +2951,7 @@ export default function AdminPanel() {
                           onChange={e => handleCustomerNameChange(e.target.value)}
                           required 
                           autoComplete="off"
+                          placeholder="Enter customer name"
                         />
                         {showCustomerSuggestions && (
                           <div className={`position-absolute w-100 ${theme === 'dark' ? 'bg-dark border-secondary' : 'bg-white border'} border-top-0 rounded-bottom shadow-sm`} style={{zIndex: 1000, maxHeight: '200px', overflowY: 'auto'}}>
@@ -2733,6 +2981,57 @@ export default function AdminPanel() {
                       </div>
                     </div>
                     <div className="col-md-6 mb-3">
+                      <label className="form-label">
+                        Phone Number 
+                        <span className="text-muted small ms-1">(Optional - Auto-fills name if found)</span>
+                      </label>
+                      <div className="position-relative">
+                        <input 
+                          type="tel" 
+                          className={`form-control ${theme === 'dark' ? 'bg-dark text-light border-secondary' : ''}`}
+                          value={newOfflineBooking.customerPhone}
+                          onChange={e => {
+                            const cleanValue = e.target.value.replace(/\D/g, "");
+                            setNewOfflineBooking({...newOfflineBooking, customerPhone: cleanValue});
+                            handleOfflineBookingPhoneChange(cleanValue);
+                          }}
+                          placeholder="Enter phone number (10 digits)"
+                          maxLength={10}
+                          autoComplete="off"
+                        />
+                        {offlineBookingLookupLoading && (
+                          <div style={{ 
+                            position: 'absolute', 
+                            right: '10px', 
+                            top: '50%', 
+                            transform: 'translateY(-50%)', 
+                            color: '#FFC107' 
+                          }}>
+                            🔍
+                          </div>
+                        )}
+                      </div>
+                      {/* Display user found message */}
+                      {offlineBookingFetchedUser && (
+                        <div className="alert alert-success mt-2 mb-0" style={{ fontSize: '0.9rem' }}>
+                          ✅ Found: <strong>{offlineBookingFetchedUser.name}</strong>
+                          <br />
+                          <small>Phone: {offlineBookingFetchedUser.mobile}</small>
+                          {offlineBookingFetchedUser.clubCoins !== undefined && (
+                            <><br /><small>Coins: {offlineBookingFetchedUser.clubCoins}</small></>
+                          )}
+                        </div>
+                      )}
+                      {newOfflineBooking.customerPhone.length === 10 && !offlineBookingFetchedUser && !offlineBookingLookupLoading && (
+                        <div className="alert alert-info mt-2 mb-0" style={{ fontSize: '0.9rem' }}>
+                          ℹ️ Phone number not found in database - creating new customer
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                  
+                  <div className="row">
+                    <div className="col-md-4 mb-3">
                       <label className="form-label">Date</label>
                       <input 
                         type="date" 
@@ -2749,9 +3048,6 @@ export default function AdminPanel() {
                         required 
                       />
                     </div>
-                  </div>
-                  
-                  <div className="row">
                     <div className="col-md-4 mb-3">
                       <label className="form-label">Smart Serial #</label>
                       <div className="input-group">
@@ -2905,6 +3201,9 @@ export default function AdminPanel() {
                       </div>
                       <div className="col-md-3">
                         <strong>Total Paid:</strong> ₹{((newOfflineBooking.cashAmount || 0) + (newOfflineBooking.gpayAmount || 0)).toFixed(2)}
+                      </div>
+                      <div className="col-md-3">
+                        <strong>🪙 Coins Reward:</strong> {selectedGame?.coins || 0}
                       </div>
                     </div>
                     <div className="mt-2">
@@ -3159,6 +3458,27 @@ export default function AdminPanel() {
                     onChange={e => setNewGame({ ...newGame, price: Number(e.target.value) })}
                   />
                 </div>
+                <div className="col-md-2">
+                  <label className="form-label">🪙 Coins Reward</label>
+                  <input
+                    type="number"
+                    className="form-control"
+                    min="0"
+                    value={newGame.coins}
+                    onChange={e => setNewGame({ ...newGame, coins: Number(e.target.value) })}
+                    placeholder="Coins per booking"
+                  />
+                </div>
+                <div className="col-md-2">
+                  <label className="form-label">Max Players</label>
+                  <input
+                    type="number"
+                    className="form-control"
+                    min="1"
+                    value={newGame.maxPlayers}
+                    onChange={e => setNewGame({ ...newGame, maxPlayers: Number(e.target.value) })}
+                  />
+                </div>
                 <div className="col-md-3">
                   <label className="form-label">Category</label>
                   <input
@@ -3168,7 +3488,7 @@ export default function AdminPanel() {
                     onChange={e => setNewGame({ ...newGame, category: e.target.value })}
                   />
                 </div>
-                <div className="col-md-3">
+                <div className="col-md-2">
                   <label className="form-label">Image URL</label>
                   <input
                     type="text"
@@ -3193,33 +3513,118 @@ export default function AdminPanel() {
                     <img src={game.image} alt={game.name} className="card-img-top" style={{ height: '180px', objectFit: 'cover' }} />
                   )}
                   <div className={`card-body ${theme === 'dark' ? 'bg-dark text-light' : ''}`}> 
-                    <h5 className="card-title">{game.name}</h5>
-                    <p className="card-text mb-1">Price: ₹{game.price}</p>
-                    <p className="card-text mb-1">Category: {game.category}</p>
-                    <p className="card-text mb-1">
-                      Status: 
-                      <span className={`badge ms-2 ${game.isActive ? 'bg-success' : 'bg-secondary'}`}>
-                        {game.isActive ? 'Active' : 'Inactive'}
-                      </span>
-                    </p>
+                    {editingGame === game.id ? (
+                      // Edit mode
+                      <div>
+                        <div className="mb-2">
+                          <label className="form-label">Game Name</label>
+                          <input
+                            type="text"
+                            className="form-control form-control-sm"
+                            value={editGameData.name}
+                            onChange={e => setEditGameData({...editGameData, name: e.target.value})}
+                          />
+                        </div>
+                        <div className="mb-2">
+                          <label className="form-label">Price (₹)</label>
+                          <input
+                            type="number"
+                            className="form-control form-control-sm"
+                            min="0"
+                            value={editGameData.price}
+                            onChange={e => setEditGameData({...editGameData, price: Number(e.target.value)})}
+                          />
+                        </div>
+                        <div className="mb-2">
+                          <label className="form-label">🪙 Coins</label>
+                          <input
+                            type="number"
+                            className="form-control form-control-sm"
+                            min="0"
+                            value={editGameData.coins}
+                            onChange={e => setEditGameData({...editGameData, coins: Number(e.target.value)})}
+                          />
+                        </div>
+                        <div className="mb-2">
+                          <label className="form-label">Max Players</label>
+                          <input
+                            type="number"
+                            className="form-control form-control-sm"
+                            min="1"
+                            value={editGameData.maxPlayers}
+                            onChange={e => setEditGameData({...editGameData, maxPlayers: Number(e.target.value)})}
+                          />
+                        </div>
+                        <div className="mb-2">
+                          <label className="form-label">Category</label>
+                          <input
+                            type="text"
+                            className="form-control form-control-sm"
+                            value={editGameData.category}
+                            onChange={e => setEditGameData({...editGameData, category: e.target.value})}
+                          />
+                        </div>
+                      </div>
+                    ) : (
+                      // View mode
+                      <div>
+                        <h5 className="card-title">{game.name}</h5>
+                        <p className="card-text mb-1">Price: ₹{game.price}</p>
+                        <p className="card-text mb-1">🪙 Coins: {game.coins || 0}</p>
+                        <p className="card-text mb-1">Max Players: {game.maxPlayers || 2}</p>
+                        <p className="card-text mb-1">Category: {game.category}</p>
+                        <p className="card-text mb-1">
+                          Status: 
+                          <span className={`badge ms-2 ${game.isActive ? 'bg-success' : 'bg-secondary'}`}>
+                            {game.isActive ? 'Active' : 'Inactive'}
+                          </span>
+                        </p>
+                      </div>
+                    )}
                   </div>
                   <div className={`card-footer d-flex justify-content-between align-items-center ${theme === 'dark' ? 'bg-secondary text-light' : ''}`}> 
-                    <div className="btn-group" role="group">
-                      <button 
-                        className={`btn btn-sm ${game.isActive ? 'btn-warning' : 'btn-success'}`}
-                        onClick={() => handleToggleGameStatus(game.id, game.isActive)}
-                        title={game.isActive ? 'Deactivate game' : 'Activate game'}
-                      >
-                        {game.isActive ? '🚫 Deactivate' : '✅ Activate'}
-                      </button>
-                      <button 
-                        className="btn btn-danger btn-sm" 
-                        onClick={() => handleDeleteGame(game.id)}
-                        title="Delete game permanently"
-                      >
-                        🗑️ Delete
-                      </button>
-                    </div>
+                    {editingGame === game.id ? (
+                      // Edit mode buttons
+                      <div className="btn-group w-100" role="group">
+                        <button 
+                          className="btn btn-success btn-sm"
+                          onClick={handleSaveEditGame}
+                        >
+                          💾 Save
+                        </button>
+                        <button 
+                          className="btn btn-secondary btn-sm"
+                          onClick={handleCancelEditGame}
+                        >
+                          ❌ Cancel
+                        </button>
+                      </div>
+                    ) : (
+                      // View mode buttons
+                      <div className="btn-group" role="group">
+                        <button 
+                          className="btn btn-primary btn-sm"
+                          onClick={() => handleEditGame(game)}
+                          title="Edit game details"
+                        >
+                          ✏️ Edit
+                        </button>
+                        <button 
+                          className={`btn btn-sm ${game.isActive ? 'btn-warning' : 'btn-success'}`}
+                          onClick={() => handleToggleGameStatus(game.id, game.isActive)}
+                          title={game.isActive ? 'Deactivate game' : 'Activate game'}
+                        >
+                          {game.isActive ? '🚫 Deactivate' : '✅ Activate'}
+                        </button>
+                        <button 
+                          className="btn btn-danger btn-sm" 
+                          onClick={() => handleDeleteGame(game.id)}
+                          title="Delete game permanently"
+                        >
+                          🗑️ Delete
+                        </button>
+                      </div>
+                    )}
                   </div>
                 </div>
               </div>
@@ -3811,6 +4216,14 @@ export default function AdminPanel() {
           }}
         />
       )}
+
+      {/* Phone Lookup Modal */}
+      <AdminPhoneLookupModal
+        isOpen={showPhoneLookupModal}
+        onClose={() => setShowPhoneLookupModal(false)}
+        onUserSelected={handleUserSelectedFromModal}
+        theme={theme}
+      />
     </div>
   );
 }

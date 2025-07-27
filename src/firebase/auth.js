@@ -159,13 +159,11 @@ export const firebaseAuth = {
     try {
       const result = await confirmationResult.confirm(otp);
       if (result.user) {
-        // Use the username from the parameter (most reliable for signup)
+        // Use the username from the parameter, fallback to DOM, then fallback to default
         let username = usernameFromParam;
-        
-        // If no username provided, try to get from DOM input (fallback)
         if (!username && typeof window !== 'undefined') {
           const usernameInput = document.getElementById('username');
-          if (usernameInput && usernameInput.value && usernameInput.value.trim()) {
+          if (usernameInput && usernameInput.value) {
             username = usernameInput.value.trim();
           }
         }
@@ -175,8 +173,8 @@ export const firebaseAuth = {
         
         const userData = {
           mobile,
-          // For existing users, preserve their existing name. For new users, use provided username
-          name: existingUser ? existingUser.name : (username && username.trim() ? username.trim() : `User ${mobile.slice(-4)}`),
+          // For existing users, preserve their data. For new users, use provided username
+          name: existingUser ? existingUser.name : (username || `User ${mobile.slice(-4)}`),
           totalBookings: existingUser?.totalBookings || 0,
           clubCoins: existingUser?.clubCoins || 0,
           streak: existingUser?.streak || 0,
@@ -184,20 +182,9 @@ export const firebaseAuth = {
           isActive: existingUser ? existingUser.isActive : true
         };
         
-        // Debug logging to verify username is being used correctly
-        console.log('Signup process:', {
-          usernameFromParam,
-          finalUsername: userData.name,
-          isNewUser: !existingUser,
-          mobile
-        });
-        
         // Only create user if they don't already exist
         if (!existingUser) {
-          console.log('Creating new user with data:', userData);
           await userService.createUser(userData);
-        } else {
-          console.log('User already exists, preserving existing name:', existingUser.name);
         }
         
         // Store user info in localStorage

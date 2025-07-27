@@ -14,7 +14,6 @@ import Dashboard from './pages/Dashboard.jsx'
 import BookGame from './pages/BookGame.jsx'
 import EventSelector from './components/EventSelector.jsx'
 import BookingForm from './components/BookingForm.jsx'
-import FirebaseTest from './components/FirebaseTest.jsx'
 import ProtectedAdminRoute from './components/ProtectedAdminRoute'
 import 'bootstrap/dist/css/bootstrap.min.css'
 import { ToastProvider } from './contexts/ToastContext'
@@ -69,9 +68,6 @@ createRoot(document.getElementById('root')).render(
             <Route path="/booking-form" element={<BookingForm />} />
             <Route path="/admin" element={<ProtectedAdminRoute><AdminPanel /></ProtectedAdminRoute>} />
             <Route path="/user" element={<UserPanel />} />
-            <Route path="/test" element={<>
-              <FirebaseTest />
-            </>} />
             <Route path="/login" element={<Login />} />
             <Route path="/dashboard" element={<Dashboard />} />
           </Routes>

@@ -46,9 +46,21 @@ export const firebaseAuth = {
         recaptchaElements.forEach(el => el.remove());
       }
       
-      // Create new reCAPTCHA without site key (uses Firebase default)
+      // Create new reCAPTCHA with options for v2 fallback
       window.recaptchaVerifier = new RecaptchaVerifier(auth, containerId, {
-        'size': 'invisible'
+        'size': 'invisible',
+        'callback': () => {
+          console.log('reCAPTCHA verified');
+        },
+        'expired-callback': () => {
+          // Reset the reCAPTCHA
+          try {
+            window.recaptchaVerifier.clear();
+            this.initRecaptcha(containerId);
+          } catch (e) {
+            console.error('Error resetting reCAPTCHA:', e);
+          }
+        }
       });
       
       recaptchaVerifier = window.recaptchaVerifier;
@@ -159,6 +171,9 @@ export const firebaseAuth = {
     try {
       const result = await confirmationResult.confirm(otp);
       if (result.user) {
+        // Check if user already exists first
+        const existingUser = await userService.getUserByMobile(mobile);
+        
         // Use the username from the parameter, fallback to DOM, then fallback to default
         let username = usernameFromParam;
         if (!username && typeof window !== 'undefined') {
@@ -183,9 +198,6 @@ export const firebaseAuth = {
           finalUsername: username,
           isSignup: !existingUser
         });
-        
-        // Check if user already exists
-        const existingUser = await userService.getUserByMobile(mobile);
         
         const userData = {
           mobile,

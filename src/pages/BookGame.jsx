@@ -219,7 +219,9 @@ export default function BookGame() {
     if (!selectedGameObj) return 0;
     const pricePerHour = parseInt(selectedGameObj.price?.toString().replace(/[^\d]/g, '') || '0');
     const totalHours = selectedSlots.length * 0.5; // Each slot is 30 minutes
-    return pricePerHour * totalHours;
+    // Charge full price for each player (100% per player)
+    const totalPrice = pricePerHour * totalHours * numPlayers;
+    return Math.round(totalPrice);
   };
 
   const handleBookingReview = () => {
@@ -248,8 +250,13 @@ export default function BookGame() {
       const userId = mobile || currentUser.email;
       const selectedGameObj = games.find(g => g.id === selectedGame);
 
+      // Generate a session ID for multiple slots booking
+      const sessionId = Date.now().toString();
+      const totalDuration = selectedSlots.length * 0.5; // Each slot is 30 minutes
+      
       // Book all selected slots
-      for (const slot of selectedSlots) {
+      for (let i = 0; i < selectedSlots.length; i++) {
+        const slot = selectedSlots[i];
         await bookingService.createBooking({
           game: selectedGameObj, // Use the full game object
           gameId: selectedGame, // Use the game ID string
@@ -257,6 +264,10 @@ export default function BookGame() {
           time: slot.time12,
           user: userId,
           status: 'Pending',
+          sessionId: sessionId,
+          isFirstSlotInSession: i === 0,
+          sessionDuration: totalDuration,
+          sessionSlotCount: selectedSlots.length,
           createdAt: new Date().toISOString(),
           numPlayers,
           coinsAwarded: coinsReward,
@@ -1459,12 +1470,23 @@ export default function BookGame() {
                 <div className={styles.priceRow} style={{
                   display: 'flex',
                   justifyContent: 'space-between',
-                  marginBottom: '8px',
+                  marginBottom: '4px',
                   fontSize: 'clamp(0.7rem, 2.2vw, 0.8rem)'
                 }}>
                   <span className={styles.priceLabel}>Total slots ({selectedSlots.length} × 30 min):</span>
                   <span className={styles.priceValue}>{selectedSlots.length * 0.5} hours</span>
                 </div>
+                {numPlayers > 1 && (
+                  <div className={styles.priceRow} style={{
+                    display: 'flex',
+                    justifyContent: 'space-between',
+                    marginBottom: '8px',
+                    fontSize: 'clamp(0.7rem, 2.2vw, 0.8rem)'
+                  }}>
+                    <span className={styles.priceLabel}>Players ({numPlayers}):</span>
+                    <span className={styles.priceValue}>{numPlayers}× base price</span>
+                  </div>
+                )}
                 <div className={styles.totalPriceRow} style={{
                   display: 'flex',
                   justifyContent: 'space-between',

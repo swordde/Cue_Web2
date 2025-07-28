@@ -1390,8 +1390,12 @@ export default function AdminPanel() {
             if (customer) {
               userId = customer.mobile || customer.email || '';
               // Get game details to find coin reward
-              const game = games.find(g => g.name === newOfflineBooking.board);
+              const game = games.find(g => g.id === newOfflineBooking.board);
               coinsAwarded = game?.coins || 0;
+              // Calculate duration-based coins (coins per hour * duration)
+              const duration = newOfflineBooking.duration || 1;
+              coinsAwarded = Math.floor(coinsAwarded * duration);
+              
               if (coinsAwarded > 0) {
                 const currentCoins = customer.clubCoins || 0;
                 // Update user coins
@@ -1399,7 +1403,7 @@ export default function AdminPanel() {
                   clubCoins: currentCoins + coinsAwarded,
                   updatedAt: new Date().toISOString()
                 });
-                console.log(`🪙 Offline Booking: Awarded ${coinsAwarded} coins to ${customer.name} (${customer.mobile})`);
+                console.log(`🪙 Offline Booking: Awarded ${coinsAwarded} coins (${game.coins}/hr × ${duration}h) to ${customer.name} (${customer.mobile})`);
                 showInfo(`🪙 ${coinsAwarded} coins awarded to ${customer.name}!`);
               }
             }
@@ -1848,7 +1852,7 @@ export default function AdminPanel() {
                         <td>{u.name || '-'}</td>
                         <td>{u.mobile || '-'}</td>
                         <td>{u.email || '-'}</td>
-                        <td>{typeof u.coins === 'number' ? u.coins : 0}</td>
+                        <td>{typeof u.clubCoins === 'number' ? u.clubCoins : 0}</td>
                         <td>
                           <span className={`badge ${u.isActive === false ? 'bg-secondary' : 'bg-success'}`}>
                             {u.isActive === false ? 'Inactive' : 'Active'}

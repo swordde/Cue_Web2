@@ -242,6 +242,10 @@ export const bookingService = {
     try {
       checkAuth();
       
+      // Generate a session ID if this is the first slot in a booking session
+      const sessionId = bookingData.sessionId || Date.now().toString();
+      const isFirstSlotInSession = !bookingData.sessionId;
+      
       // Sanitize booking data to remove any non-serializable objects
       const sanitizedData = {
         game: bookingData.game,
@@ -259,10 +263,10 @@ export const bookingService = {
           changedBy: auth.currentUser?.phoneNumber || auth.currentUser?.email || 'system'
         }],
         // Add session information
-        sessionId: bookingData.sessionId,
-        isFirstSlotInSession: bookingData.isFirstSlotInSession,
-        sessionDuration: bookingData.sessionDuration,
-        sessionSlotCount: bookingData.sessionSlotCount,
+        sessionId: sessionId,
+        isFirstSlotInSession: isFirstSlotInSession,
+        sessionDuration: bookingData.sessionDuration || 0.5, // 30 minutes default
+        sessionSlotCount: bookingData.sessionSlotCount || 1,
         createdAt: serverTimestamp(),
         updatedAt: serverTimestamp()
       };

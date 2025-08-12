@@ -664,7 +664,8 @@ export default function AdminPanel() {
           });
 
           // Load users, games, slots
-          userService.getAllUsers().then((allUsers) => {
+          // Real-time users listener
+          const usersUnsub = userService.onUsersChange((allUsers) => {
             setUsers(allUsers);
             const map = {};
             allUsers.forEach(u => { map[u.mobile] = u; });
@@ -683,6 +684,7 @@ export default function AdminPanel() {
       unsubscribe();
       if (bookingsUnsub) bookingsUnsub();
       if (offlineBookingsUnsub) offlineBookingsUnsub();
+      if (typeof usersUnsub === 'function') usersUnsub();
     };
     // eslint-disable-next-line
   }, [navigate]);
@@ -1389,22 +1391,24 @@ export default function AdminPanel() {
             );
             if (customer) {
               userId = customer.mobile || customer.email || '';
-              // Get game details to find coin reward
-              const game = games.find(g => g.id === newOfflineBooking.board);
-              coinsAwarded = game?.coins || 0;
-              // Calculate duration-based coins (coins per hour * duration)
-              const duration = newOfflineBooking.duration || 1;
-              coinsAwarded = Math.floor(coinsAwarded * duration);
-              
-              if (coinsAwarded > 0) {
-                const currentCoins = customer.clubCoins || 0;
-                // Update user coins
-                await userService.updateUser(customer.id || customer.mobile, {
-                  clubCoins: currentCoins + coinsAwarded,
-                  updatedAt: new Date().toISOString()
-                });
-                console.log(`🪙 Offline Booking: Awarded ${coinsAwarded} coins (${game.coins}/hr × ${duration}h) to ${customer.name} (${customer.mobile})`);
-                showInfo(`🪙 ${coinsAwarded} coins awarded to ${customer.name}!`);
+              // Only award coins if booking is settled
+              if (newOfflineBooking.settlement === 'SETTLED') {
+                // Get game details to find coin reward
+                const game = games.find(g => g.id === newOfflineBooking.board);
+                coinsAwarded = game?.coins || 0;
+                // Calculate duration-based coins (coins per hour * duration)
+                const duration = newOfflineBooking.duration || 1;
+                coinsAwarded = Math.floor(coinsAwarded * duration);
+                if (coinsAwarded > 0) {
+                  const currentCoins = customer.clubCoins || 0;
+                  // Always use Firestore document ID for update
+                  await userService.updateUser(customer.id, {
+                    clubCoins: currentCoins + coinsAwarded,
+                    updatedAt: new Date().toISOString()
+                  });
+                  console.log(`🪙 Offline Booking: Awarded ${coinsAwarded} coins (${game.coins}/hr × ${duration}h) to ${customer.name} (${customer.mobile})`);
+                  showInfo(`🪙 ${coinsAwarded} coins awarded to ${customer.name}!`);
+                }
               }
             }
           } catch (coinError) {
@@ -1590,13 +1594,52 @@ export default function AdminPanel() {
 
   const handleUpdateOfflineBooking = async (bookingId, updates) => {
     try {
+      // Fetch previous booking data
+      const prevBooking = offlineBookings.find(b => b.id === bookingId);
       await offlineBookingService.updateOfflineBooking(bookingId, updates);
-      
+
+      // Award coins if settlement changed from not 'SETTLED' to 'SETTLED'
+      if (prevBooking && prevBooking.settlement !== 'SETTLED' && updates.settlement === 'SETTLED') {
+        // Find user by name (since offline bookings use names, not mobile numbers)
+        let userId = '';
+        let coinsAwarded = 0;
+        if (prevBooking.customerName && prevBooking.board) {
+          try {
+            const allUsers = await userService.getAllUsers();
+            const customer = allUsers.find(user =>
+              user.name && user.name.toLowerCase() === prevBooking.customerName.toLowerCase()
+            );
+            if (customer) {
+              userId = customer.mobile || customer.email || '';
+              // Get game details to find coin reward
+              const game = games.find(g => g.id === prevBooking.board);
+              coinsAwarded = game?.coins || 0;
+              // Calculate duration-based coins (coins per hour * duration)
+              const duration = prevBooking.duration || 1;
+              coinsAwarded = Math.floor(coinsAwarded * duration);
+              if (coinsAwarded > 0) {
+                const currentCoins = customer.clubCoins || 0;
+                // Always use Firestore document ID for update
+                await userService.updateUser(customer.id, {
+                  clubCoins: currentCoins + coinsAwarded,
+                  updatedAt: new Date().toISOString()
+                });
+                console.log(`🪙 Offline Booking Update: Awarded ${coinsAwarded} coins (${game.coins}/hr × ${duration}h) to ${customer.name} (${customer.mobile})`);
+                showInfo(`🪙 ${coinsAwarded} coins awarded to ${customer.name}!`);
+              }
+            }
+          } catch (coinError) {
+            console.error('Error awarding coins for offline booking update:', coinError);
+            // Don't fail the update if coin awarding fails
+          }
+        }
+      }
+
       // Update local state
-      setOfflineBookings(prev => prev.map(b => 
+      setOfflineBookings(prev => prev.map(b =>
         b.id === bookingId ? { ...b, ...updates } : b
       ));
-      
+
       showSuccess('Offline booking updated on server successfully!');
     } catch (err) {
       showError('Failed to update offline booking on server');
@@ -3196,6 +3239,21 @@ export default function AdminPanel() {
                     <div className="row small">
                       <div className="col-md-3">
                         <strong>Total Amount:</strong> ₹{newOfflineBooking.amount || 0}
+                        {selectedGame && newOfflineBooking.duration ? (
+                          <span className="text-muted small d-block">
+                            ({selectedGame.price} × {newOfflineBooking.duration}h
+                            {(() => {
+                              // Calculate multiplier for display
+                              let multiplier = 1;
+                              const hour = newOfflineBooking.startTime ? parseInt(newOfflineBooking.startTime.split(':')[0]) : new Date().getHours();
+                              if (hour >= 18 && hour <= 22) multiplier += 0.1;
+                              if (hour >= 10 && hour <= 12) multiplier -= 0.05;
+                              if (newOfflineBooking.duration >= 3) multiplier -= 0.05;
+                              if (newOfflineBooking.duration >= 5) multiplier -= 0.1;
+                              return multiplier !== 1 ? ` × ${multiplier}` : '';
+                            })()})
+                          </span>
+                        ) : null}
                       </div>
                       <div className="col-md-3">
                         <strong>Discount:</strong> ₹{newOfflineBooking.discount || 0}
@@ -3207,7 +3265,10 @@ export default function AdminPanel() {
                         <strong>Total Paid:</strong> ₹{((newOfflineBooking.cashAmount || 0) + (newOfflineBooking.gpayAmount || 0)).toFixed(2)}
                       </div>
                       <div className="col-md-3">
-                        <strong>🪙 Coins Reward:</strong> {selectedGame?.coins || 0}
+                        <strong>🪙 Coins Reward:</strong> {selectedGame && newOfflineBooking.duration ? (selectedGame.coins * newOfflineBooking.duration) : 0}
+                        {selectedGame && newOfflineBooking.duration ? (
+                          <span className="text-muted small"> ({selectedGame.coins} × {newOfflineBooking.duration}h)</span>
+                        ) : null}
                       </div>
                     </div>
                     <div className="mt-2">

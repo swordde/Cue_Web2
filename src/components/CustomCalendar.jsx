@@ -4,6 +4,15 @@ import styles from './CustomCalendar.module.css';
 const CustomCalendar = ({ selectedDate, onDateSelect, bookingsData = [] }) => {
   const [currentDate, setCurrentDate] = useState(new Date());
 
+  // Local date formatter YYYY-MM-DD
+  const formatLocalDate = (d) => {
+    const date = d instanceof Date ? d : new Date(d);
+    const y = date.getFullYear();
+    const m = String(date.getMonth() + 1).padStart(2, '0');
+    const day = String(date.getDate()).padStart(2, '0');
+    return `${y}-${m}-${day}`;
+  };
+
   // Generate calendar days for the current month
   const generateCalendarDays = () => {
     const today = new Date();
@@ -24,10 +33,10 @@ const CustomCalendar = ({ selectedDate, onDateSelect, bookingsData = [] }) => {
     // Add days of the month
     for (let day = 1; day <= daysInMonth; day++) {
       const date = new Date(currentYear, currentMonth, day);
-      const isPast = date < today.setHours(0, 0, 0, 0);
+      const isPast = date < new Date(today.getFullYear(), today.getMonth(), today.getDate());
       
-      // Check if this date has bookings and count them
-      const dateStr = date.toISOString().split('T')[0];
+      // Check if this date has bookings and count them (use local date string)
+      const dateStr = formatLocalDate(date);
       const dayBookings = bookingsData.filter(booking => booking.date === dateStr);
       const hasBookings = dayBookings.length > 0;
       const bookingCount = dayBookings.length;

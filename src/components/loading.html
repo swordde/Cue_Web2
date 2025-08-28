@@ -1,0 +1,130 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Pool Loading</title>
+  <style>
+    body {
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      height: 100vh;
+      background: #111;
+    }
+
+    .loader {
+      position: relative;
+      width: 280px;
+      height: 220px;
+    }
+
+    /* Pool Table */
+    .table {
+      position: absolute;
+      bottom: 40px;
+      left: 20px;
+      width: 240px;
+      height: 14px;
+      background: #2ecc71;
+      border-radius: 6px;
+      box-shadow: 0 0 8px #27ae60 inset;
+    }
+
+    /* Cue Ball */
+    .ball {
+      position: absolute;
+      bottom: 52px;
+      left: 40px;
+      width: 16px;
+      height: 16px;
+      background: white;
+      border-radius: 50%;
+      box-shadow: 0 0 6px #eee;
+      animation: ballShot 4s infinite ease-in-out;
+    }
+
+    @keyframes ballShot {
+      0%, 55% { left: 40px; }
+      65%, 75% { left: 200px; } /* roll forward */
+      100% { left: 40px; } /* reset */
+    }
+
+    /* Stickman */
+    .stickman {
+      position: absolute;
+      bottom: 8px;
+      left: -60px;
+      width: 80px;
+      height: 130px;
+      transform: rotate(30deg); /* forward lean */
+      transform-origin: bottom left;
+    }
+
+    .head {
+      width: 22px;
+      height: 22px;
+      border-radius: 50%;
+      background: white;
+      margin: 0 auto 3px;
+    }
+
+    .body {
+      width: 3px;
+      height: 50px;
+      background: white;
+      margin: 0 auto;
+    }
+
+    /* Cue stick */
+    .cue {
+      position: absolute;
+      width: 100px;
+      height: 4px;
+      background: #d35400;
+      top: 30px;
+      left: -25px;
+      border-radius: 2px;
+      transform-origin: left;
+      animation: aim 4s infinite ease-in-out;
+    }
+
+    @keyframes aim {
+      0%, 40% { transform: rotate(-4deg); }
+      50% { transform: rotate(5deg) translateX(6px); } /* aim pullback */
+      60% { transform: rotate(-10deg) translateX(3px); } /* strong shot */
+      100% { transform: rotate(10deg); } /* reset */
+    }
+
+    /* Loading Text */
+    .loading-text {
+      position: absolute;
+      bottom: -45px;
+      width: 100%;
+      text-align: center;
+      font-family: Arial, sans-serif;
+      font-size: 18px;
+      color: #bbb;
+      letter-spacing: 2px;
+      animation: blink 1s infinite;
+    }
+
+    @keyframes blink {
+      0%, 100% { opacity: 1; }
+      50% { opacity: 0.5; }
+    }
+  </style>
+</head>
+<body>
+  <div class="loader">
+    <div class="table"></div>
+    <div class="ball"></div>
+    <div class="stickman">
+      <div class="head"></div>
+      <div class="body"></div>
+      <div class="cue"></div>
+    </div>
+    <div class="loading-text">Loading...</div>
+  </div>
+</body>
+</html>

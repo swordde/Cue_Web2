@@ -13,7 +13,7 @@ const features = [
     label: 'Games', 
     icon: '', 
     path: '/book', 
-    description: 'PS5, Xbox, Pool, Snooker, Darts & More',
+    description: 'PS5, 3, Pool, Snooker, Darts & More',
     features: ['Premium Gaming Setup', 'Latest Game Titles', 'Competitive Tournaments']
   },
   { 
@@ -100,8 +100,8 @@ export default function Dashboard() {
         navigate('/login');
       } else {
         setCurrentUser(user);
-        // Check for admin custom claim
-        const token = await getIdTokenResult(user, true); // force refresh
+        // Check for admin custom claim without forcing refresh to prevent infinite loop
+        const token = await getIdTokenResult(user, false); // Don't force refresh
         setIsAdmin(!!token.claims.admin);
         // Always fetch latest user data from Firestore
         let mobile = user.phoneNumber;

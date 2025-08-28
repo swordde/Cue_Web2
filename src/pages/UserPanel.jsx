@@ -16,6 +16,32 @@ import BookingStatusHistory from '../components/BookingStatusHistory';
 import { resolveGameName, createToastHelper, handleUserAuthentication, handleLogout as handleLogoutUtil } from '../utils/commonUtils';
 import './UserPanelDark.css';
 
+// Helper: format Date to YYYY-MM-DD in local time
+const formatLocalDate = (date) => {
+  if (!date) return '';
+  const d = date instanceof Date ? date : new Date(date);
+  const y = d.getFullYear();
+  const m = String(d.getMonth() + 1).padStart(2, '0');
+  const day = String(d.getDate()).padStart(2, '0');
+  return `${y}-${m}-${day}`;
+};
+
+// Helper: check if a YYYY-MM-DD is before today using local midnight
+const isPastLocalDate = (yyyyMmDd) => {
+  if (!yyyyMmDd) return false;
+  const [y, m, d] = yyyyMmDd.split('-').map(Number);
+  const selected = new Date(y, m - 1, d).getTime();
+  const today = new Date();
+  const todayMidnight = new Date(today.getFullYear(), today.getMonth(), today.getDate()).getTime();
+  return selected < todayMidnight;
+};
+
+// Helper: parse YYYY-MM-DD into a local Date object
+const parseLocalYmd = (yyyyMmDd) => {
+  const [y, m, d] = yyyyMmDd.split('-').map(Number);
+  return new Date(y, m - 1, d);
+};
+
 const SIDEBAR_LINKS = [
   { key: 'calendar', label: 'Calendar' },
   { key: 'bookings', label: 'All Bookings' },
@@ -227,7 +253,7 @@ export default function UserPanel() {
       }
       setLoading(true);
       try {
-        const slotList = await slotService.getSlotsForDate(date.toISOString().split('T')[0], selectedGame);
+        const slotList = await slotService.getSlotsForDate(formatLocalDate(date), selectedGame);
         setSlots(slotList);
       } catch (err) {
         setError("Failed to load slots");
@@ -240,8 +266,7 @@ export default function UserPanel() {
   }, [selectedGame, date]);
 
   // Format date as yyyy-mm-dd
-  const formatDate = d => d.toISOString().split('T')[0];
-  const selectedDate = formatDate(date);
+  const selectedDate = formatLocalDate(date);
   const bookingsForDate = bookings.filter(b => b.date === selectedDate);
 
   // Filtered and sorted bookings for table
@@ -255,8 +280,12 @@ export default function UserPanel() {
       );
     })
     .sort((a, b) => {
-      const aDate = new Date(a.date + 'T' + (a.time || a.startTime || '00:00'));
-      const bDate = new Date(b.date + 'T' + (b.time || b.startTime || '00:00'));
+      const [ay, am, ad] = a.date.split('-').map(Number);
+      const [by, bm, bd] = b.date.split('-').map(Number);
+      const [aH, aM] = (a.time || a.startTime || '00:00').split(':').map(t => parseInt(t, 10) || 0);
+      const [bH, bM] = (b.time || b.startTime || '00:00').split(':').map(t => parseInt(t, 10) || 0);
+      const aDate = new Date(ay, am - 1, ad, aH, aM);
+      const bDate = new Date(by, bm - 1, bd, bH, bM);
       return sortOrder === "desc" ? bDate - aDate : aDate - bDate;
     });
 
@@ -295,7 +324,7 @@ export default function UserPanel() {
   const handleRebook = (booking) => {
     setActiveTab('calendar');
     setSelectedGame(booking.game);
-    setDate(new Date(booking.date));
+    setDate(parseLocalYmd(booking.date));
     // Optionally, scroll to booking form or show a toast
     setShowDetailsModal(false);
   };
@@ -486,7 +515,9 @@ export default function UserPanel() {
                     <h6 className="mt-0" style={{ color: '#ffc107', fontSize: '1.1rem', margin: 0 }}>
                       Bookings for {selectedDate}
                     </h6>
-                    {new Date(selectedDate) < new Date().setHours(0, 0, 0, 0) && (
+                    {isPastLocalDate(selectedDate) && (
+                      // Compare using local midnight values
+                      // eslint-disable-next-line no-self-compare
                       <span style={{
                         background: 'rgba(255, 152, 0, 0.2)',
                         color: '#FF9800',
@@ -505,7 +536,8 @@ export default function UserPanel() {
                   ) : (
                     <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
                       {bookingsForDate.map((b, i) => {
-                        const isPastBooking = new Date(selectedDate) < new Date().setHours(0, 0, 0, 0);
+                        const isPastBooking = isPastLocalDate(selectedDate);
+                        
                         return (
                           <div key={i} style={{
                             background: isPastBooking ? 'rgba(60, 60, 60, 0.6)' : 'rgba(50, 50, 50, 0.8)',
@@ -714,11 +746,11 @@ export default function UserPanel() {
                       <h6 className="card-title">Booking Activity</h6>
                       <p className="card-text">
                         Total Bookings: {bookings.length}<br/>
-                        This Month: {bookings.filter(b => new Date(b.date).getMonth() === new Date().getMonth()).length}<br/>
+                        This Month: {bookings.filter(b => parseLocalYmd(b.date).getMonth() === new Date().getMonth()).length}<br/>
                         This Week: {bookings.filter(b => {
-                          const bookingDate = new Date(b.date);
+                          const bookingDate = parseLocalYmd(b.date);
                           const now = new Date();
-                          const weekStart = new Date(now.setDate(now.getDate() - now.getDay()));
+                          const weekStart = new Date(now.getFullYear(), now.getMonth(), now.getDate() - now.getDay());
                           return bookingDate >= weekStart;
                         }).length}
                       </p>

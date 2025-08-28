@@ -2,6 +2,7 @@ import React, { useState, useEffect } from "react";
 import { createPortal } from "react-dom";
 import { useNavigate } from "react-router-dom";
 import { firebaseAuth } from "../firebase/auth";
+import { auth } from "../firebase/config";
 import OtpInput from "../components/OtpInput";
 import Loading from "../components/Loading";
 import { useToast } from '../contexts/ToastContext';
@@ -61,57 +62,18 @@ export default function Login() {
       setError("Enter a valid phone number");
       return;
     }
-    if (tab === "signup" && (!username || username.trim().length < 2)) {
-      showToast("Enter a valid username (at least 2 characters)", "error");
-      setError("Enter a valid username (at least 2 characters)");
-      return;
-    }
     
-    // Additional validation for username: no special characters except spaces, hyphens, and apostrophes
-    if (tab === "signup" && username.trim()) {
-      const nameRegex = /^[a-zA-Z\s\-']+$/;
-      if (!nameRegex.test(username.trim())) {
-        showToast("Name should only contain letters, spaces, hyphens, and apostrophes", "error");
-        setError("Name should only contain letters, spaces, hyphens, and apostrophes");
-        return;
-      }
-    }
+    // No username validation here, as it's handled after OTP if needed
+
     setLoading(true);
     setError("");
     try {
-      if (tab === "signup") {
-        try {
-          const existingUser = await userService.getUserByMobile(mobile);
-          if (existingUser) {
-            showToast("This phone number is already registered. Please use 'Phone Sign In' instead.", "error");
-            setError("This phone number is already registered. Please use 'Phone Sign In' instead.");
-            setLoading(false);
-            return;
-          }
-        } catch (error) {
-          console.log('Could not check for existing user, proceeding with signup:', error);
-        }
-      }
-      // For signin, check if user exists
-      if (tab === "signin") {
-        try {
-          const existingUser = await userService.getUserByMobile(mobile);
-          if (!existingUser) {
-            showToast("No account found for this phone number. Please use 'Phone Sign Up' to create an account.", "error");
-            setError("No account found for this phone number. Please use 'Phone Sign Up' to create an account.");
-            setLoading(false);
-            return;
-          }
-        } catch (error) {
-          console.log('Could not check for user existence:', error);
-        }
-      }
       const phoneNumber = mobile.startsWith("+") ? mobile : "+91" + mobile;
       const result = await firebaseAuth.sendOTP(phoneNumber, "recaptcha-container");
       setConfirmationResult(result);
       setStep(2);
       setResendCooldown(30); // Set initial cooldown timer
-      showToast(tab === "signup" ? "OTP sent! Verify to create your account." : "OTP sent successfully!", "success");
+      showToast("OTP sent successfully!", "success");
     } catch (err) {
       console.error('OTP send error:', err);
       if (err.code === 'auth/invalid-app-credential') {
@@ -186,40 +148,82 @@ export default function Login() {
       return;
     }
     
-    // For signup, ensure username is provided and trimmed
-    if (tab === "signup") {
-      const trimmedUsername = username.trim();
-      if (!trimmedUsername || trimmedUsername.length < 2) {
-        showToast("Please enter a valid username (at least 2 characters)", "error");
-        return;
-      }
-      
-      // Additional validation for username format
-      const nameRegex = /^[a-zA-Z\s\-']+$/;
-      if (!nameRegex.test(trimmedUsername)) {
-        showToast("Name should only contain letters, spaces, hyphens, and apostrophes", "error");
-        return;
-      }
-    }
-    
     setLoading(true);
     try {
-      // Pass the trimmed username for signup, empty string for signin
-      const usernameToPass = tab === "signup" ? username.trim() : "";
-      console.log('Verifying OTP with username:', usernameToPass, 'for mobile:', mobile);
+      // The usernameFromParam is now always empty here, as name input is deferred
+      const response = await firebaseAuth.verifyOTPAndLogin(confirmationResult, otp, mobile, "");
       
-      await firebaseAuth.verifyOTPAndLogin(confirmationResult, otp, mobile, usernameToPass);
-      const userData = await userService.getUserByMobile(mobile);
-      if (userData && userData.isActive === false) {
-        await firebaseAuth.logout();
-        showToast('Your account has been deactivated. Please contact support.', 'error');
-        return;
+      if (response.requiresProfileCompletion) {
+        // This is a new user or a user without a Firestore profile.
+        // Transition to a step where they can enter their name.
+        showToast("Welcome! Please tell us your name.", "info");
+        setStep(3); // A new step for profile completion
+      } else {
+        // Existing user, or new user whose profile was created immediately (e.g., via old flow or provided name)
+        // Ensure account is not deactivated
+        if (response.userData && response.userData.isActive === false) {
+          await firebaseAuth.logout();
+          showToast('Your account has been deactivated. Please contact support.', 'error');
+          return;
+        }
+        showToast('Login successful!', 'success');
+        setShowVideo(true);
       }
-      showToast(tab === "signup" ? 'Account created successfully!' : 'Login successful!', 'success');
-      setShowVideo(true); // Show video instead of navigating
     } catch (err) {
       console.error('OTP verification error:', err);
       showToast("Invalid OTP. Please check and try again.", "error");
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  // Handle profile completion (user submits name)
+  const handleCompleteProfile = async (e) => {
+    e.preventDefault();
+    const trimmedUsername = username.trim();
+    if (!trimmedUsername || trimmedUsername.length < 2) {
+      showToast("Please enter a valid name (at least 2 characters)", "error");
+      setError("Please enter a valid name (at least 2 characters)");
+      return;
+    }
+
+    const nameRegex = /^[a-zA-Z\s\-']+$/;
+    if (!nameRegex.test(trimmedUsername)) {
+      showToast("Name should only contain letters, spaces, hyphens, and apostrophes", "error");
+      setError("Name should only contain letters, spaces, hyphens, and apostrophes");
+      return;
+    }
+
+    setLoading(true);
+    setError("");
+    try {
+      // Get the currently logged-in Firebase Auth user
+      const currentUser = auth.currentUser;
+      if (!currentUser) {
+        throw new Error("No authenticated user found.");
+      }
+
+      // Construct user data for Firestore
+      const userData = {
+        mobile: mobile.startsWith("+") ? mobile.slice(3) : mobile, // Ensure normalized mobile
+        name: trimmedUsername.replace(/\b\w+/g, word =>
+          word.charAt(0).toUpperCase() + word.slice(1).toLowerCase()
+        ),
+        totalBookings: 0,
+        clubCoins: 0,
+        streak: 0,
+        lastLogin: new Date().toISOString(),
+        isActive: true,
+        email: currentUser.email || null,
+        uid: currentUser.uid
+      };
+
+      await userService.createUser(userData);
+      showToast('Profile created successfully! Welcome!', 'success');
+      setShowVideo(true);
+    } catch (err) {
+      console.error('Error completing profile:', err);
+      showToast("Failed to save profile. Please try again.", "error");
     } finally {
       setLoading(false);
     }
@@ -258,7 +262,7 @@ export default function Login() {
               </b>
             </div>
             <div className={styles.description}>
-              Discover the best food from over 1,000 restaurants and fast delivery to your doorstep. We make food ordering fast, simple and free - no matter if you order online or cash.
+              order online or cash.
             </div>
           </div>
           <div className={styles.rightSection}
@@ -271,7 +275,6 @@ export default function Login() {
             }}
           >
             {/* Forms section, Get Started style for signin */}
-            {/* Forms section, Get Started style for signin */}
             {/* Get Started heading above the tab buttons */}
             <div className={styles.getStartedTitle}>Get Started</div>
             <div className={styles.tabContainer}>
@@ -279,12 +282,7 @@ export default function Login() {
                 type="button"
                 className={`${styles.tabButton} ${tab === 'signin' ? styles.tabButtonActive : ''}`}
                 onClick={() => { setTab('signin'); setStep(1); setError(''); }}
-              >Phone Sign In</button>
-              <button
-                type="button"
-                className={`${styles.tabButton} ${tab === 'signup' ? styles.tabButtonActive : ''}`}
-                onClick={() => { setTab('signup'); setStep(1); setError(''); }}
-              >Phone Sign Up</button>
+              >Phone Login</button>
               {/* Secret Email Login button, hidden visually but accessible via keyboard or a small icon */}
               <button
                 style={{
@@ -304,9 +302,9 @@ export default function Login() {
               >Email Login</button>
             </div>
             <div className={styles.formContainer}>
-            {!loading && tab === 'signin' && step === 1 && (
+            {/* Step 1: Enter Mobile Number */}
+            {tab === 'signin' && step === 1 && (
               <form onSubmit={handleSendOtp} className={styles.form}>
-                {/* Error message display */}
                 {error && (
                   <div className={styles.errorMessage}>{error}</div>
                 )}
@@ -332,13 +330,15 @@ export default function Login() {
                 </button>
               </form>
             )}
-            {!loading && tab === 'signin' && step === 2 && (
+
+            {/* Step 2: Enter OTP */}
+            {tab === 'signin' && step === 2 && (
               <form onSubmit={handleVerifyOtp} className={styles.form}>
                 <div className={styles.inputGroup}>
                   <label className={styles.inputLabel}>Enter OTP</label>
                   <OtpInput length={6} onComplete={setOtp} onOtpChange={setOtp} />
                 </div>
-                <button type="submit" className={styles.primaryButton}>Verify & Login</button>
+                <button type="submit" className={styles.primaryButton}>Verify</button>
                 <button 
                   type="button" 
                   className={styles.secondaryButton} 
@@ -356,14 +356,16 @@ export default function Login() {
                 </button>
               </form>
             )}
-            {!loading && tab === 'signup' && step === 1 && (
-              <form onSubmit={handleSendOtp} className={styles.form}>
-                {/* Error message display */}
+
+            {/* Step 3: Complete Profile (Enter Name) */}
+            {tab === 'signin' && step === 3 && (
+              <form onSubmit={handleCompleteProfile} className={styles.form}>
                 {error && (
                   <div className={styles.errorMessage}>{error}</div>
                 )}
+                <div className={styles.instructionText}>Please enter your name to complete your profile.</div>
                 <div className={styles.inputGroup}>
-                  <label htmlFor="username" className={styles.inputLabel}>User Name</label>
+                  <label htmlFor="username" className={styles.inputLabel}>Your Name</label>
                   <input
                     id="username"
                     type="text"
@@ -375,52 +377,14 @@ export default function Login() {
                     minLength={2}
                   />
                 </div>
-                <div className={styles.inputGroup}>
-                  <label htmlFor="mobile" className={styles.inputLabel}>Phone Number</label>
-                  <div className={styles.phoneInputContainer}>
-                    <span className={styles.countryCode}>+91</span>
-                    <input
-                      id="mobile"
-                      type="tel"
-                      maxLength={10}
-                      className={styles.input}
-                      placeholder="Enter your phone number"
-                      value={mobile}
-                      onChange={e => setMobile(e.target.value.replace(/\D/g, ""))}
-                      required
-                    />
-                  </div>
-                </div>
                 <button type="submit" className={styles.primaryButton}>
-                  Send OTP
+                  Complete Profile
                 </button>
               </form>
             )}
-            {!loading && tab === 'signup' && step === 2 && (
-              <form onSubmit={handleVerifyOtp} className={styles.form}>
-                <div className={styles.inputGroup}>
-                  <label className={styles.inputLabel}>Enter OTP</label>
-                  <OtpInput length={6} onComplete={setOtp} onOtpChange={setOtp} />
-                </div>
-                <button type="submit" className={styles.primaryButton}>Verify & Sign Up</button>
-                <button 
-                  type="button" 
-                  className={styles.secondaryButton} 
-                  onClick={handleResendOtp} 
-                  disabled={resendCooldown > 0}
-                >
-                  {resendCooldown > 0 ? `Resend OTP (${resendCooldown}s)` : 'Resend OTP'}
-                </button>
-                <button 
-                  type="button" 
-                  className={styles.backButton} 
-                  onClick={() => { setStep(1); setOtp(""); setError(""); }}
-                >
-                  Back
-                </button>
-              </form>
-            )}
-            {!loading && tab === 'email' && (
+
+            {/* Email Login Form */}
+            {tab === 'email' && (
               <form onSubmit={handleEmailLogin} className={styles.form}>
                 <div className={styles.inputGroup}>
                   <label htmlFor="email" className={styles.inputLabel}>Email</label>

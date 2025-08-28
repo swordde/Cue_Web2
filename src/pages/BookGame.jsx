@@ -3,21 +3,22 @@ import { useState, useEffect, useRef, useCallback } from "react";
 // Helper to format date as YYYY-MM-DD in local time
 function formatLocalDate(date) {
   if (!date) return '';
-  const year = date.getFullYear();
-  const month = String(date.getMonth() + 1).padStart(2, '0');
-  const day = String(date.getDate()).padStart(2, '0');
+  // Ensure we're working with a Date object
+  const dateObj = date instanceof Date ? date : new Date(date);
+  // Use consistent formatting across all devices
+  const year = dateObj.getFullYear();
+  const month = String(dateObj.getMonth() + 1).padStart(2, '0');
+  const day = String(dateObj.getDate()).padStart(2, '0');
   return `${year}-${month}-${day}`;
 }
 import Loading from "../components/Loading";
 import { userService } from "../firebase/services";
-import GameSelector from "../components/GameSelector";
-import SlotGrid from "../components/SlotGrid";
-import BookingModal from "../components/BookingModal";
-import { Link, useNavigate } from 'react-router-dom';
+import { useNavigate } from 'react-router-dom';
 import { gameService, slotService, bookingService, realtimeService, offlineBookingService } from "../firebase/services";
-import { auth } from "../firebase/config";
+import { auth, db } from "../firebase/config";
 import { onAuthStateChanged } from "firebase/auth";
 import { signOut } from "firebase/auth";
+import { collection, query, where, onSnapshot } from 'firebase/firestore';
 import { useToast } from '../contexts/ToastContext';
 import { createToastHelper } from '../utils/commonUtils';
 import styles from './BookGame.module.css';
@@ -27,29 +28,32 @@ export default function BookGame() {
   const [selectedGame, setSelectedGame] = useState('');
   const [numPlayers, setNumPlayers] = useState(1);
   const [maxPlayers, setMaxPlayers] = useState(1);
-  const [coinsReward, setCoinsReward] = useState(0);
+  const [coinsReward, setCoinsReward] = useState(0); // will remain but not used to award
   const [selectedDate, setSelectedDate] = useState(null);
   const [selectedSlots, setSelectedSlots] = useState([]);
   const [slots, setSlots] = useState([]);
-  const [showModal, setShowModal] = useState(false);
-  const [selectedTime, setSelectedTime] = useState(null);
   const [alert, setAlert] = useState({ message: '', type: '' });
   const [loading, setLoading] = useState(true);
-  const [error, setError] = useState(null);
   const [currentUser, setCurrentUser] = useState(null);
-  const [userName, setUserName] = useState("");
-  const [userBookings, setUserBookings] = useState([]);
   const [allBookings, setAllBookings] = useState([]); // All bookings for the selected date and game
+  const [myBookings, setMyBookings] = useState([]); // Fallback: current user's bookings for selected date/game
   const [offlineBookings, setOfflineBookings] = useState([]); // Offline bookings for occupied games
   const [showBookingView, setShowBookingView] = useState(false);
   const [showBookingPopup, setShowBookingPopup] = useState(false);
   const [summaryMinimized, setSummaryMinimized] = useState(false);
+  const [forceRefresh, setForceRefresh] = useState(0); // Force re-render counter
   const navigate = useNavigate();
   const { showSuccess, showError, showInfo } = useToast();
   const [userData, setUserData] = useState(null);
 
   // Helper function to show toasts based on type
   const showToast = createToastHelper({ showSuccess, showError, showInfo });
+
+  // Force refresh mechanism for cross-device sync
+  const forceSlotRefresh = () => {
+    console.log('🔄 FORCING SLOT REFRESH for cross-device sync');
+    setForceRefresh(prev => prev + 1);
+  };
 
   // Calendar functionality
   const generateCalendarDays = () => {
@@ -69,41 +73,82 @@ export default function BookGame() {
     }
     
     // Add days of the month
+    const todayMidnight = new Date(today.getFullYear(), today.getMonth(), today.getDate());
     for (let day = 1; day <= daysInMonth; day++) {
       const date = new Date(currentYear, currentMonth, day);
-      const isPast = date < today.setHours(0, 0, 0, 0);
+      const isPast = date < todayMidnight;
       days.push({ date, day, isPast });
     }
     
     return days;
   };
 
-  // Generate time slots from existing slots data
+  // Generate time slots from existing slots data - Enhanced with force refresh
   const generateTimeSlots = () => {
     if (!slots || slots.length === 0) {
-      console.log('No slots available');
+      console.log('⚠️ No slots available');
       return [];
     }
     
-    console.log('Generating time slots:', {
-      slots: slots,
-      allBookings: allBookings,
-      offlineBookings: offlineBookings,
+    console.log('🔄 Generating time slots (refresh:', forceRefresh, '):', {
+      slots: slots.length,
+      allBookings: allBookings.length,
+      myBookings: myBookings.length,
+      offlineBookings: offlineBookings.length,
       selectedDate: selectedDate ? formatLocalDate(selectedDate) : undefined,
       selectedGameId: selectedGame
     });
     
+    const combinedBookings = [...allBookings, ...myBookings];
+
     return slots.map((slot, index) => {
       const slotTime = typeof slot === 'string' ? slot : slot.time;
       // Check if this slot is already booked by ANY user (not cancelled)
       const slotDateStr = selectedDate ? formatLocalDate(selectedDate) : '';
-      const isBookedOnline = allBookings.some(booking => {
+      
+      const isBookedOnline = combinedBookings.some(booking => {
         const bookingDateStr = booking.date ? booking.date : '';
-        return booking.time === slotTime && booking.status !== 'Cancelled' && bookingDateStr === slotDateStr;
+        // Normalize time formats for comparison
+        const normalizedBookingTime = booking.time?.trim();
+        const normalizedSlotTime = slotTime?.trim();
+        
+        const isTimeMatch = normalizedBookingTime === normalizedSlotTime;
+        const isDateMatch = bookingDateStr === slotDateStr;
+        const isNotCancelled = booking.status !== 'Cancelled';
+        
+        // Enhanced debug logging for cross-device issues
+        if (isTimeMatch && isDateMatch) {
+          console.log('🔍 Slot match found:', { 
+            slotTime: normalizedSlotTime, 
+            bookingTime: normalizedBookingTime, 
+            status: booking.status,
+            isBooked: isNotCancelled,
+            user: booking.user?.substring(0, 5) + '***'
+          });
+        }
+        
+        return isTimeMatch && isNotCancelled && isDateMatch;
       });
+      
       // Check if this slot is occupied by offline bookings
       const isBookedOffline = checkOfflineBookingConflict(slotTime);
       const isBooked = isBookedOnline || isBookedOffline;
+
+      // CRITICAL: Enhanced debug logging for cross-device troubleshooting
+      if (isBookedOnline || isBookedOffline) {
+        console.log(`BOOKED SLOT DETECTED - ${slotTime}:`, {
+          slotTime,
+          isBookedOnline,
+          isBookedOffline,
+          totalBooked: isBooked,
+          willShowAsAvailable: !isBooked,
+          deviceInfo: {
+            userAgent: navigator.userAgent.substring(0, 50) + '...',
+            timestamp: new Date().toISOString(),
+            refresh: forceRefresh
+          }
+        });
+      }
 
       // Determine if slot is expired (in the past for today)
       let isExpired = false;
@@ -128,7 +173,7 @@ export default function BookGame() {
         id: index + 1,
         time24: slotTime,
         time12: slotTime,
-        available: !isBooked, // Still allow booking even if expired
+        available: !isBooked && !isExpired,
         isBookedOffline: isBookedOffline,
         isExpired: isExpired
       };
@@ -194,13 +239,37 @@ export default function BookGame() {
     return totalMinutes;
   };
 
+  const minutesTo24 = (totalMinutes) => {
+    const minutesInDay = 24 * 60;
+    const normalized = ((totalMinutes % minutesInDay) + minutesInDay) % minutesInDay;
+    const hh = Math.floor(normalized / 60);
+    const mm = normalized % 60;
+    return `${String(hh).padStart(2, '0')}:${String(mm).padStart(2, '0')}`;
+  };
+
+  const minutesTo12 = (totalMinutes) => {
+    const minutesInDay = 24 * 60;
+    const normalized = ((totalMinutes % minutesInDay) + minutesInDay) % minutesInDay;
+    let hh = Math.floor(normalized / 60);
+    const mm = normalized % 60;
+    const period = hh >= 12 ? 'PM' : 'AM';
+    const hour12 = ((hh + 11) % 12) + 1;
+    return `${hour12}:${String(mm).padStart(2, '0')} ${period}`;
+  };
+
+  const addMinutesToTimeString = (timeStr, minsToAdd) => {
+    const total = timeToMinutes(timeStr) + minsToAdd;
+    const is12Hour = timeStr.includes('AM') || timeStr.includes('PM');
+    return is12Hour ? minutesTo12(total) : minutesTo24(total);
+  };
+
   const handleDateSelect = (date) => {
     setSelectedDate(date);
     setSelectedSlots([]); // Reset slot selection when date changes
   };
 
   const handleSlotSelect = (slot) => {
-    if (!slot.available) return;
+    if (!slot.available || slot.isExpired) return;
     
     setSelectedSlots(prev => {
       const isSelected = prev.some(s => s.id === slot.id);
@@ -236,7 +305,7 @@ export default function BookGame() {
       return;
     }
     if (userData && userData.isActive === false) {
-      showToast('Your account is deactivated. Please contact support.', 'error');
+      showToast('Your account has been deactivated. Please contact support.', 'error');
       return;
     }
 
@@ -269,16 +338,22 @@ export default function BookGame() {
           sessionDuration: totalDuration,
           sessionSlotCount: selectedSlots.length,
           createdAt: new Date().toISOString(),
-          numPlayers,
-          coinsAwarded: coinsReward,
+          numPlayers
+          // coinsAwarded no longer sent from client
         });
       }
 
       const timeRange = selectedSlots.length > 1 
-        ? `${selectedSlots[0].time12} - ${selectedSlots[selectedSlots.length - 1].time12}` 
+        ? `${selectedSlots[0].time12} - ${addMinutesToTimeString(selectedSlots[selectedSlots.length - 1].time12, 30)}` 
         : selectedSlots[0].time12;
 
       showToast(`Booking confirmed!\nGame: ${games.find(g => g.id === selectedGame)?.name}\nDate: ${selectedDate.toDateString()}\nTime: ${timeRange}\nTotal Price: ₹${calculateTotalPrice()}`, 'success');
+      
+      // CRITICAL: Force refresh for cross-device sync
+      setTimeout(() => {
+        forceSlotRefresh();
+        console.log('🔄 Post-booking refresh triggered for cross-device sync');
+      }, 1000);
       
       setShowBookingPopup(false);
       setShowBookingView(false);
@@ -310,7 +385,7 @@ export default function BookGame() {
     setSelectedSlots([]);
     // Don't navigate, just go back to game selection view
   };
-
+  
   const handleTopNavBack = () => {
     if (showBookingView) {
       // If in booking view, go back to games selection
@@ -324,8 +399,8 @@ export default function BookGame() {
   // Real-time listeners refs
   const gamesUnsub = useRef(null);
   const slotsUnsub = useRef(null);
-  const userBookingsUnsub = useRef(null);
   const allBookingsUnsub = useRef(null);
+  const userDateGameBookingsUnsub = useRef(null);
   const offlineBookingsUnsub = useRef(null);
   const listenersSetup = useRef(false);
 
@@ -370,7 +445,6 @@ export default function BookGame() {
         } else if (user.email) {
           userData = await userService.getUserByEmail(user.email);
         }
-        setUserName(userData?.name || "User");
         setUserData(userData);
         if (userData && userData.isActive === false) {
           await signOut(auth);
@@ -381,14 +455,6 @@ export default function BookGame() {
         
         // Setup real-time listeners after authentication
         setupRealTimeListeners();
-        
-        // Setup user bookings listener
-        const userId = mobile || user.email;
-        userBookingsUnsub.current = realtimeService.onUserBookingsChange(userId, (bookings) => {
-          console.log('User bookings updated:', bookings.length);
-          console.log('User bookings data:', bookings);
-          setUserBookings(bookings);
-        });
       }
     });
     return () => {
@@ -396,8 +462,8 @@ export default function BookGame() {
       // Cleanup real-time listeners
       if (gamesUnsub.current) gamesUnsub.current();
       if (slotsUnsub.current) slotsUnsub.current();
-      if (userBookingsUnsub.current) userBookingsUnsub.current();
       if (allBookingsUnsub.current) allBookingsUnsub.current();
+      if (userDateGameBookingsUnsub.current) userDateGameBookingsUnsub.current();
       if (offlineBookingsUnsub.current) offlineBookingsUnsub.current();
       listenersSetup.current = false;
     };
@@ -411,38 +477,103 @@ export default function BookGame() {
     // Cleanup existing listeners
     if (slotsUnsub.current) {
       slotsUnsub.current();
+      slotsUnsub.current = null;
     }
     if (allBookingsUnsub.current) {
       allBookingsUnsub.current();
+      allBookingsUnsub.current = null;
+    }
+    if (userDateGameBookingsUnsub.current) {
+      userDateGameBookingsUnsub.current();
+      userDateGameBookingsUnsub.current = null;
+    }
+    if (offlineBookingsUnsub.current) {
+      offlineBookingsUnsub.current();
+      offlineBookingsUnsub.current = null;
     }
     
+    setMyBookings([]);
+
     if (selectedGame && selectedDate) {
       const dateString = formatLocalDate(selectedDate);
-      console.log('Setting up listeners for:', dateString, selectedGame);
+      console.log('🔄 CRITICAL: Setting up listeners for:', dateString, selectedGame);
+      
       // Setup slots listener
-      slotsUnsub.current = slotService.onSlotsChange(dateString, selectedGame, (slotList) => {
-        console.log('Slots updated:', slotList.length);
-        setSlots(slotList);
-        setLoading(false);
-      });
-      // Setup all bookings listener for this date and game
-      allBookingsUnsub.current = realtimeService.onBookingsByDateAndGameChange(dateString, selectedGame, (bookings) => {
-        console.log('All bookings updated for', dateString, selectedGame, ':', bookings.length);
-        console.log('Bookings data:', bookings);
-        setAllBookings(bookings);
-      });
+      try {
+        slotsUnsub.current = slotService.onSlotsChange(dateString, selectedGame, (slotList) => {
+          console.log('📊 SLOTS UPDATE:', slotList.length, 'slots for', dateString);
+          setSlots(slotList);
+          setLoading(false);
+        });
+      } catch (error) {
+        console.error('❌ Slots listener error:', error);
+      }
+      
+      // Setup all bookings listener for this date and game - may be restricted by rules
+      try {
+        allBookingsUnsub.current = realtimeService.onBookingsByDateAndGameChange(dateString, selectedGame, (bookings) => {
+          console.log('🎯 BOOKINGS UPDATE for', dateString, selectedGame, ':', bookings.length);
+          console.log('📋 Booking details:', bookings.map(b => ({ 
+            time: b.time, 
+            status: b.status, 
+            user: b.user?.substring(0, 5) + '***',
+            id: b.id 
+          })));
+          setAllBookings(bookings);
+          // Force a re-render to update slot statuses
+          forceSlotRefresh();
+        });
+      } catch (error) {
+        console.error('❌ Bookings listener error:', error);
+        setAllBookings([]);
+      }
+      
+      // Fallback: user-specific bookings listener (always allowed by rules)
+      try {
+        if (currentUser) {
+          let mobile = currentUser.phoneNumber;
+          if (mobile && mobile.startsWith('+91')) mobile = mobile.slice(3);
+          const userId = mobile || currentUser.email;
+          const userBookingsQuery = query(
+            collection(db, 'bookings'),
+            where('date', '==', dateString),
+            where('user', '==', userId)
+          );
+          userDateGameBookingsUnsub.current = onSnapshot(userBookingsQuery, (snapshot) => {
+            const docs = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+            // Filter by game match across formats
+            const filtered = docs.filter(b => b.gameId === selectedGame || b.game?.id === selectedGame || b.game === selectedGame);
+            setMyBookings(filtered);
+            forceSlotRefresh();
+          }, (error) => {
+            console.error('❌ User bookings listener error:', error);
+            setMyBookings([]);
+          });
+        }
+      } catch (error) {
+        console.error('❌ Error setting user-specific bookings listener:', error);
+        setMyBookings([]);
+      }
+      
       // Setup real-time offline bookings listener
-      offlineBookingsUnsub.current = offlineBookingService.onOfflineBookingsChange((allOfflineBookings) => {
-        // Filter for the selected date - we need all games for this date to check conflicts
-        const dateOfflineBookings = allOfflineBookings.filter(booking => 
-          booking.date === dateString && booking.status !== 'CLOSE'
-        );
-        console.log('Real-time offline bookings updated for', dateString, ':', dateOfflineBookings.length);
-        setOfflineBookings(dateOfflineBookings);
-      });
+      try {
+        offlineBookingsUnsub.current = offlineBookingService.onOfflineBookingsChange((allOfflineBookings) => {
+          // Filter for the selected date - we need all games for this date to check conflicts
+          const dateOfflineBookings = allOfflineBookings.filter(booking => 
+            booking.date === dateString && booking.status !== 'CLOSE'
+          );
+          console.log('🏢 OFFLINE BOOKINGS UPDATE for', dateString, ':', dateOfflineBookings.length);
+          setOfflineBookings(dateOfflineBookings);
+        });
+      } catch (error) {
+        console.error('❌ Offline bookings listener error:', error);
+        setOfflineBookings([]);
+      }
     } else {
+      console.log('⚠️ No game/date selected, clearing data...');
       setSlots([]);
       setAllBookings([]);
+      setMyBookings([]);
       setOfflineBookings([]);
     }
 
@@ -453,11 +584,14 @@ export default function BookGame() {
       if (allBookingsUnsub.current) {
         allBookingsUnsub.current();
       }
+      if (userDateGameBookingsUnsub.current) {
+        userDateGameBookingsUnsub.current();
+      }
       if (offlineBookingsUnsub.current) {
         offlineBookingsUnsub.current();
       }
     };
-  }, [selectedGame, selectedDate]);
+  }, [selectedGame, selectedDate, currentUser]);
 
   const selectedGameObj = games.find(g => g.id === selectedGame);
 
@@ -469,7 +603,7 @@ export default function BookGame() {
     }
   }, [selectedGameObj]);
 
-  // Calculate coins reward when numPlayers or selectedGame changes
+  // Calculate coins reward when numPlayers or selectedGame changes (UI-only) - keep for display but not written to DB
   useEffect(() => {
     if (selectedGameObj && numPlayers) {
       // Example: 10 coins per player, or use selectedGameObj.coinsPerPlayer if available
@@ -480,72 +614,10 @@ export default function BookGame() {
     }
   }, [selectedGameObj, numPlayers]);
 
-  // Handle booking
-  const handleBooking = async () => {
-    if (!currentUser) {
-      setAlert({ message: 'Please login to book a slot.', type: 'danger' });
-      return;
-    }
-    if (userData && userData.isActive === false) {
-      setAlert({ message: 'Your account is deactivated. Please contact support.', type: 'danger' });
-      return;
-    }
-    setLoading(true);
-    try {
-      // Normalize phone number for user field
-      let mobile = currentUser.phoneNumber;
-      if (mobile && mobile.startsWith('+91')) {
-        mobile = mobile.slice(3);
-      }
-      const userId = mobile || currentUser.email;
-      await bookingService.createBooking({
-        game: selectedGameObj,
-        gameId: selectedGameObj?.id, // Add separate gameId for easier querying
-        date: formatLocalDate(selectedDate),
-        time: selectedTime,
-        user: userId,
-        status: 'Pending',
-        createdAt: new Date().toISOString(),
-      });
-      setAlert({ message: `Booking successful!\nGame: ${selectedGameObj?.name}\nDate: ${formatLocalDate(selectedDate)}\nTime: ${selectedTime}` , type: 'success' });
-      setShowModal(false);
-      // No need to manually refresh - real-time listener will update automatically
-    } catch (err) {
-      setAlert({ message: 'Booking failed. Please try again.', type: 'danger' });
-    } finally {
-      setLoading(false);
-    }
-  };
-
   if (loading) {
     return <Loading message="Loading games..." />;
   }
 
-
-  if (error) {
-    return (
-      <div className={styles.bookGamePage}>
-        <div className={styles.alert + ' ' + styles.alertDanger}>
-          <div className={styles.alertContent}>
-            <h4>Error Loading Games</h4>
-            <p>{error}</p>
-            <button 
-              className={styles.retryButton}
-              onClick={() => window.location.reload()}
-            >
-              Retry
-            </button>
-          </div>
-        </div>
-        {/* Background Effects */}
-        <div className={styles.backgroundEffects}>
-          <div className={styles.floatingOrb}></div>
-          <div className={styles.floatingOrb}></div>
-          <div className={styles.floatingOrb}></div>
-        </div>
-      </div>
-    );
-  }
   return (
     <div className={styles.bookGamePage} style={{minHeight: '100vh', width: '100%', overflowX: 'hidden', padding: '8px'}}>
       {/* Mobile-friendly top navigation bar */}
@@ -626,12 +698,28 @@ export default function BookGame() {
             animation: 'pulse 2s infinite'
           }}></span>
           <span>🟢 Live occupancy status</span>
+          <button 
+            onClick={forceSlotRefresh}
+            style={{
+              background: 'rgba(255, 193, 7, 0.2)',
+              border: '1px solid rgba(255, 193, 7, 0.3)',
+              color: '#ffc107',
+              borderRadius: '4px',
+              padding: '2px 6px',
+              fontSize: '0.7rem',
+              cursor: 'pointer',
+              marginLeft: '8px'
+            }}
+            title="Force refresh slot status"
+          >
+            🔄
+          </button>
           <span style={{marginLeft: 'auto', fontSize: '0.75rem', opacity: 0.8}}>
             {allBookings.length + offlineBookings.filter(b => 
               b.date === formatLocalDate(selectedDate) && 
               (b.board === selectedGame || b.board === games.find(g => g.id === selectedGame)?.name) &&
               b.status !== 'CLOSE'
-            ).length} active bookings
+            ).length} active | R:{forceRefresh}
           </span>
         </div>
       )}
@@ -816,7 +904,7 @@ export default function BookGame() {
               </div>
             </div>
           </div>
-
+          
           {/* Mobile-friendly Step Indicator */}
           <div className={styles.stepIndicator} style={{
             display: 'flex',
@@ -1012,7 +1100,7 @@ export default function BookGame() {
                         marginTop: '2px',
                         color: slot.isExpired ? '#9e9e9e' : undefined
                       }}>
-                        {slot.isExpired ? 'Expired' : slot.available ? '30 min' : slot.isBookedOffline ? 'Occupied' : 'Booked'}
+                        {slot.isExpired ? 'Expired' : slot.isBookedOffline ? 'Occupied' : !slot.available ? 'Booked' : '30 min'}
                       </span>
                       {slot.isBookedOffline && (
                         <span style={{
@@ -1022,6 +1110,17 @@ export default function BookGame() {
                           fontWeight: 'bold'
                         }}>
                           (Offline)
+                        </span>
+                      )}
+                      {/* Debug indicator - shows B for booked slots */}
+                      {!slot.available && !slot.isBookedOffline && !slot.isExpired && (
+                        <span style={{
+                          fontSize: 'clamp(0.5rem, 1.8vw, 0.7rem)',
+                          color: '#dc3545',
+                          marginTop: '1px',
+                          fontWeight: 'bold'
+                        }}>
+                          ✓
                         </span>
                       )}
                     </div>
@@ -1181,7 +1280,7 @@ export default function BookGame() {
                       fontWeight: 'bold'
                     }}>
                       <span className={styles.summaryLabel}>Coins Reward:</span>
-                      <span className={styles.summaryValue}>{coinsReward}</span>
+                      <span className={styles.summaryValue}>{/* removed display to avoid confusion */}</span>
                     </div>
                     <div className={styles.summaryItem} style={{
                       display: 'flex',

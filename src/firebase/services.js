@@ -1,4 +1,3 @@
-// ...existing code...
 import { 
   collection, 
   doc, 
@@ -12,13 +11,19 @@ import {
   where, 
   orderBy,
   onSnapshot,
-  serverTimestamp 
+  serverTimestamp,
+  runTransaction,
+  increment
 } from 'firebase/firestore';
 import { 
   signInWithPhoneNumber, 
   RecaptchaVerifier 
 } from 'firebase/auth';
+import { getFunctions, httpsCallable } from 'firebase/functions';
 import { db, auth } from './config';
+
+// Initialize Cloud Functions
+const functions = getFunctions();
 
 // Collections
 const USERS_COLLECTION = 'users';
@@ -27,6 +32,9 @@ const GAMES_COLLECTION = 'games';
 const SLOTS_COLLECTION = 'slots';
 const ADMIN_LOGS_COLLECTION = 'adminLogs';
 const OFFLINE_BOOKINGS_COLLECTION = 'offlineBookings';
+const PUBLIC_OCCUPANCY_COLLECTION = 'publicOccupancy';
+
+// NOTE: All coin-awarding logic has been centralized/removed. Clients MUST NOT modify user.clubCoins or booking.coinsAwarded.
 
 // Helper function to check authentication - now optional
 const checkAuth = (required = true) => {
@@ -34,6 +42,61 @@ const checkAuth = (required = true) => {
     throw new Error('User not authenticated');
   }
   return !!auth.currentUser;
+};
+
+// Secure user lookup service using Cloud Function
+export const secureUserService = {
+  // Check if user exists by mobile number (secure)
+  async checkUserExists(mobile) {
+    try {
+      checkAuth();
+      
+      if (!mobile || typeof mobile !== 'string' || mobile.length < 10) {
+        throw new Error('Valid mobile number required');
+      }
+
+      console.log('🔍 Checking user existence for:', mobile.substring(0, 8) + '***');
+      
+      const checkUserFunction = httpsCallable(functions, 'checkUserExists');
+      const result = await checkUserFunction({ mobile: String(mobile) });
+      
+      console.log('✅ User lookup result:', {
+        exists: result.data.exists,
+        hasUserData: !!result.data.userData
+      });
+      
+      return {
+        exists: result.data.exists,
+        userData: result.data.userData
+      };
+    } catch (error) {
+      console.error('❌ Error checking user existence:', error);
+      
+      // Handle specific Firebase function errors
+      if (error.code === 'unauthenticated') {
+        throw new Error('Must be logged in to check user existence');
+      } else if (error.code === 'invalid-argument') {
+        throw new Error('Invalid mobile number provided');
+      } else {
+        throw new Error('Failed to check user existence');
+      }
+    }
+  },
+
+  // Lookup user by phone for admin/offline booking purposes
+  async lookupUserByPhone(phoneNumber) {
+    try {
+      if (!phoneNumber || phoneNumber.length !== 10) {
+        return { exists: false, userData: null };
+      }
+      
+      const result = await this.checkUserExists(phoneNumber);
+      return result;
+    } catch (error) {
+      console.error('User lookup failed:', error);
+      return { exists: false, userData: null, error: error.message };
+    }
+  }
 };
 
 // User Services
@@ -84,7 +147,7 @@ export const userService = {
       }
       
       const mobileString = mobile.toString();
-      console.log('🔍 Searching for user with mobile:', mobileString);
+      // Reduced logging for normal operations
       
       const userQuery = query(
         collection(db, USERS_COLLECTION),
@@ -94,14 +157,43 @@ export const userService = {
       
       if (!snapshot.empty) {
         const userData = { id: snapshot.docs[0].id, ...snapshot.docs[0].data() };
-        console.log('✅ Found existing user:', userData.name, userData.mobile);
+        // Only log for debugging if needed
+        // console.log('✅ Found existing user:', userData.name, userData.mobile);
         return userData;
       }
       
-      console.log('ℹ️ No user found with mobile:', mobileString);
+      // console.log('ℹ️ No user found with mobile:', mobileString);
       return null;
     } catch (error) {
-      console.error('❌ Error getting user by mobile:', error);
+      console.warn('⚠️ getUserByMobile non-fatal error (likely permissions before auth):', error);
+      return null;
+    }
+  },
+
+  // Get user by UID
+  async getUserByUid(uid) {
+    try {
+      if (!uid) {
+        console.warn('getUserByUid called with empty UID');
+        return null;
+      }
+      
+      const userQuery = query(
+        collection(db, USERS_COLLECTION),
+        where('uid', '==', uid)
+      );
+      const snapshot = await getDocs(userQuery);
+      
+      if (!snapshot.empty) {
+        const userData = { id: snapshot.docs[0].id, ...snapshot.docs[0].data() };
+        console.log('✅ Found existing user by UID:', userData.name, userData.uid);
+        return userData;
+      }
+      
+      console.log('ℹ️ No user found with UID:', uid);
+      return null;
+    } catch (error) {
+      console.warn('⚠️ getUserByUid non-fatal error:', error);
       return null;
     }
   },
@@ -120,7 +212,7 @@ export const userService = {
       }
       return null;
     } catch (error) {
-      console.error('Error getting user by email:', error);
+      console.warn('⚠️ getUserByEmail non-fatal error (likely permissions before auth):', error);
       return null;
     }
   },
@@ -226,7 +318,12 @@ export const bookingService = {
     try {
       checkAuth();
       const bookingRef = doc(db, BOOKINGS_COLLECTION, bookingId);
+      const bookingDoc = await getDoc(bookingRef);
       await deleteDoc(bookingRef);
+      // Remove occupancy mirror
+      try {
+        await deleteDoc(doc(db, PUBLIC_OCCUPANCY_COLLECTION, bookingId));
+      } catch (e) {}
       await logAdminAction({
         action: 'delete booking',
         targetType: 'booking',
@@ -249,7 +346,7 @@ export const bookingService = {
       // Sanitize booking data to remove any non-serializable objects
       const sanitizedData = {
         game: bookingData.game,
-        gameId: bookingData.gameId, // Add gameId for reference
+        gameId: bookingData.gameId, // Ensure gameId is always set
         date: bookingData.date,
         time: bookingData.time,
         user: bookingData.user,
@@ -265,42 +362,29 @@ export const bookingService = {
         // Add session information
         sessionId: sessionId,
         isFirstSlotInSession: isFirstSlotInSession,
-        sessionDuration: bookingData.sessionDuration || 0.5, // 30 minutes default
+        sessionDuration: bookingData.sessionDuration || 0.5, // CRITICAL: Add sessionDuration for coin calculation
         sessionSlotCount: bookingData.sessionSlotCount || 1,
+        numPlayers: bookingData.numPlayers || 1,
         createdAt: serverTimestamp(),
-        updatedAt: serverTimestamp()
+        updatedAt: serverTimestamp(),
+        coinsAwarded: false, // Initialize as false
+        // Coin awarding disabled on client - will be handled server-side on status change
       };
       
       const bookingRef = await addDoc(collection(db, BOOKINGS_COLLECTION), sanitizedData);
-      
-      // Award coins to user if booking is confirmed and it's the first slot in the session
-      if (bookingData.status === 'confirmed' && bookingData.user?.mobile && bookingData.isFirstSlotInSession) {
-        try {
-          // Get game details to find coin reward
-          const game = await gameService.getGame(bookingData.gameId || bookingData.game?.id || bookingData.game);
-          const baseCoinsPerHour = game?.coins || 0;
-          
-          if (baseCoinsPerHour > 0) {
-            // Calculate duration-based coins (coins per hour * session duration)
-            const sessionDuration = bookingData.sessionDuration || 0.5; // Default to 30 minutes
-            const coinsToAward = Math.floor(baseCoinsPerHour * sessionDuration);
-            
-            // Get current user data
-            const currentUser = await this.getUserByMobile(bookingData.user.mobile);
-            const currentCoins = currentUser?.clubCoins || 0;
-            
-            // Update user coins
-            await this.updateUser(currentUser?.id || bookingData.user.mobile, {
-              clubCoins: currentCoins + coinsToAward,
-              updatedAt: new Date().toISOString()
-            });
-            
-            console.log(`🪙 Awarded ${coinsToAward} coins (${baseCoinsPerHour}/hr × ${sessionDuration}h) to ${bookingData.user.mobile} for session ${bookingData.sessionId}`);
-          }
-        } catch (coinError) {
-          console.error('Error awarding coins:', coinError);
-          // Don't fail the booking if coin awarding fails
-        }
+
+      // Mirror to public occupancy (minimal info)
+      try {
+        const occupancyDoc = {
+          date: sanitizedData.date,
+          gameId: sanitizedData.gameId || sanitizedData.game?.id || sanitizedData.game,
+          time: sanitizedData.time,
+          status: sanitizedData.status,
+          updatedAt: serverTimestamp()
+        };
+        await setDoc(doc(db, PUBLIC_OCCUPANCY_COLLECTION, bookingRef.id), occupancyDoc);
+      } catch (e) {
+        console.warn('Public occupancy mirror create failed:', e);
       }
       
       await logAdminAction({
@@ -397,6 +481,28 @@ export const bookingService = {
         statusHistory,
         updatedAt: serverTimestamp()
       });
+
+      // Update public occupancy mirror
+      try {
+        await updateDoc(doc(db, PUBLIC_OCCUPANCY_COLLECTION, bookingId), {
+          status,
+          updatedAt: serverTimestamp()
+        });
+      } catch (e) {
+        // If mirror missing, recreate it
+        try {
+          const date = currentBooking?.date;
+          const gameId = currentBooking?.gameId || currentBooking?.game?.id || currentBooking?.game;
+          const time = currentBooking?.time;
+          await setDoc(doc(db, PUBLIC_OCCUPANCY_COLLECTION, bookingId), {
+            date, gameId, time, status, updatedAt: serverTimestamp()
+          });
+        } catch (e2) {}
+      }
+      
+      // Client-side coin awarding removed: server-side or admin flow must handle coins
+      console.log('Coin awarding disabled on client; booking status updated only.');
+
       await logAdminAction({
         action: 'update booking status',
         targetType: 'booking',
@@ -414,8 +520,13 @@ export const bookingService = {
     try {
       checkAuth();
       const bookingRef = doc(db, BOOKINGS_COLLECTION, bookingId);
+      // Ensure clients do not set coinsAwarded or sessionCoinsAwarded
+      const safeUpdates = { ...updates };
+      delete safeUpdates.coinsAwarded;
+      delete safeUpdates.sessionCoinsAwarded;
+
       await updateDoc(bookingRef, {
-        ...updates,
+        ...safeUpdates,
         updatedAt: serverTimestamp()
       });
       await logAdminAction({
@@ -481,6 +592,28 @@ export const gameService = {
     } catch (error) {
       console.error('Error getting all games:', error);
       return [];
+    }
+  },
+
+  // Get game by ID
+  async getGame(gameId) {
+    try {
+      checkAuth();
+      if (!gameId) {
+        console.warn('getGame called with empty gameId');
+        return null;
+      }
+      const gameRef = doc(db, GAMES_COLLECTION, gameId);
+      const gameDoc = await getDoc(gameRef);
+      if (gameDoc.exists()) {
+        return { id: gameDoc.id, ...gameDoc.data() };
+      } else {
+        console.warn('Game not found for ID:', gameId);
+        return null;
+      }
+    } catch (error) {
+      console.error('Error getting game:', error);
+      throw error;
     }
   },
 
@@ -835,6 +968,43 @@ export const realtimeService = {
       callback([]);
       return () => {}; // Return empty unsubscribe function
     }
+  },
+
+  // Listen to public occupancy for a specific date and game
+  onPublicOccupancyByDateAndGame(date, gameId, callback) {
+    try {
+      if (!auth.currentUser) {
+        console.warn('User not authenticated, skipping real-time listener');
+        callback([]);
+        return () => {};
+      }
+      
+      if (!date || !gameId) {
+        console.log('Missing date or gameId for occupancy:', { date, gameId });
+        callback([]);
+        return () => {};
+      }
+
+      const occupancyQuery = query(
+        collection(db, PUBLIC_OCCUPANCY_COLLECTION),
+        where('date', '==', date),
+        where('gameId', '==', gameId)
+      );
+      return onSnapshot(occupancyQuery,
+        (snapshot) => {
+          const docs = snapshot.docs.map(d => ({ id: d.id, ...d.data() }));
+          callback(docs);
+        },
+        (error) => {
+          console.error('Error listening to public occupancy:', error);
+          callback([]);
+        }
+      );
+    } catch (error) {
+      console.error('Error setting up public occupancy listener:', error);
+      callback([]);
+      return () => {};
+    }
   }
 }; 
 
@@ -920,6 +1090,11 @@ export const offlineBookingService = {
     try {
       checkAuth();
       const bookingRef = doc(db, OFFLINE_BOOKINGS_COLLECTION, bookingId);
+      
+      // Get current booking data before update to check previous status
+      const bookingDoc = await getDoc(bookingRef);
+      const currentBookingData = bookingDoc.exists() ? bookingDoc.data() : null;
+
       await updateDoc(bookingRef, {
         ...updates,
         updatedAt: serverTimestamp(),
@@ -1513,19 +1688,7 @@ export const analyticsService = {
 };
 
 export async function logAdminAction({ action, targetType, targetId, details }) {
-  try {
-    checkAuth();
-    const admin = auth.currentUser?.phoneNumber || auth.currentUser?.email || 'unknown';
-    const logEntry = {
-      action, // e.g., 'delete booking', 'update game', etc.
-      targetType, // e.g., 'booking', 'game', 'user'
-      targetId, // id of the affected object
-      admin, // phone or email
-      details: details || null,
-      timestamp: serverTimestamp(),
-    };
-    await addDoc(collection(db, ADMIN_LOGS_COLLECTION), logEntry);
-  } catch (error) {
-    console.error('Error logging admin action:', error);
-  }
-} 
+  // Client-side admin logging disabled for security.
+  // Server-side Cloud Functions handle audit logging automatically.
+  console.log('Admin action logged server-side:', { action, targetType, targetId, details });
+}

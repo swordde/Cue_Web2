@@ -170,68 +170,76 @@ export const firebaseAuth = {
   async verifyOTPAndLogin(confirmationResult, otp, mobile, usernameFromParam) {
     try {
       const result = await confirmationResult.confirm(otp);
-      if (result.user) {
-        // Check if user already exists first
-        const existingUser = await userService.getUserByMobile(mobile);
-        
-        // Use the username from the parameter, fallback to DOM, then fallback to default
-        let username = usernameFromParam;
-        if (!username && typeof window !== 'undefined') {
-          const usernameInput = document.getElementById('username');
-          if (usernameInput && usernameInput.value) {
-            username = usernameInput.value.trim();
-          }
-        }
-        
-        // Validate and clean username
-        if (username) {
-          username = username.trim();
-          // Ensure proper capitalization
-          username = username.replace(/\b\w+/g, word => 
+      const firebaseUser = result.user;
+
+      // Determine if this is a newly created Firebase Auth user (first time this phone number signs in)
+      const isNewFirebaseAuthUser = firebaseUser.metadata.creationTime === firebaseUser.metadata.lastSignInTime;
+
+      // Always attempt to fetch the Firestore user data using the authenticated mobile.
+      // This is now safe because the user is authenticated, and your rules allow reading own data.
+      const existingFirestoreUser = await userService.getUserByMobile(mobile);
+
+      console.log('🔍 Processing OTP verification:', {
+        mobile,
+        isNewFirebaseAuthUser,
+        existingFirestoreUser: !!existingFirestoreUser, // Convert to boolean for logging
+        providedUsername: usernameFromParam,
+        authUid: firebaseUser.uid
+      });
+
+      let userDataForFirestore = null;
+      let requiresProfileCompletion = false;
+
+      if (existingFirestoreUser) {
+        // User exists in Firestore: It's a sign-in.
+        // Update last login timestamp.
+        console.log('🔄 Updating existing user login time in Firestore.');
+        await userService.updateUser(existingFirestoreUser.id, {
+          lastLogin: new Date().toISOString()
+        });
+        userDataForFirestore = existingFirestoreUser;
+      } else {
+        // User does NOT exist in Firestore: This is a new user for your 'users' collection.
+        // We need to collect their name.
+        console.log('✨ No Firestore profile found. Requires name for completion.');
+        requiresProfileCompletion = true;
+        // If username is provided at this step (from a 'signup' path that no longer exists in Login.jsx),
+        // we can create the user immediately. Otherwise, Login.jsx will prompt for it.
+        if (usernameFromParam) {
+          console.log('✅ Name provided, creating new user profile in Firestore.');
+          const username = usernameFromParam.trim().replace(/\b\w+/g, word =>
             word.charAt(0).toUpperCase() + word.slice(1).toLowerCase()
           );
+          userDataForFirestore = {
+            mobile,
+            name: username,
+            totalBookings: 0,
+            clubCoins: 0,
+            streak: 0,
+            lastLogin: new Date().toISOString(),
+            isActive: true,
+            email: firebaseUser.email || null, // Capture email if available from other auth methods
+            uid: firebaseUser.uid // Store Firebase Auth UID for future reference
+          };
+          await userService.createUser(userDataForFirestore);
+          requiresProfileCompletion = false; // Profile created
         }
-        
-        console.log('🔍 Processing user authentication:', {
-          mobile,
-          providedUsername: usernameFromParam,
-          finalUsername: username,
-          isSignup: !existingUser
-        });
-        
-        const userData = {
-          mobile,
-          // For existing users, preserve their data. For new users, use provided username
-          name: existingUser ? existingUser.name : (username || `User ${mobile.slice(-4)}`),
-          totalBookings: existingUser?.totalBookings || 0,
-          clubCoins: existingUser?.clubCoins || 0,
-          streak: existingUser?.streak || 0,
-          lastLogin: new Date().toISOString(),
-          isActive: existingUser ? existingUser.isActive : true,
-          email: existingUser?.email || null
-        };
-        
-        // Only create user if they don't already exist
-        if (!existingUser) {
-          console.log('✅ Creating new user with data:', userData);
-          await userService.createUser(userData);
-        } else {
-          console.log('🔄 Updating existing user login time');
-          await userService.updateUser(existingUser.id || mobile, {
-            lastLogin: new Date().toISOString()
-          });
-        }
-        
-        // Store user info in localStorage
-        localStorage.setItem('isLoggedIn', 'true');
-        localStorage.setItem('mobile', mobile);
-        
-        // Always fetch latest user data from Firestore
-        const latestUser = await userService.getUserByMobile(mobile);
-        return latestUser || userData;
       }
+
+      // Store user info in localStorage regardless of new/existing status
+      localStorage.setItem('isLoggedIn', 'true');
+      localStorage.setItem('mobile', mobile);
+      localStorage.setItem('uid', firebaseUser.uid); // Store UID for consistency
+
+      // Return structured response
+      return {
+        success: true,
+        requiresProfileCompletion,
+        userData: userDataForFirestore || { mobile, uid: firebaseUser.uid } // Return basic data if profile not yet created
+      };
     } catch (error) {
-      console.error('Error verifying OTP:', error);
+      console.error('Error verifying OTP and processing login:', error);
+      // Re-throw specific Firebase Auth errors for Login.jsx to handle (e.g., 'auth/invalid-verification-code')
       throw error;
     }
   },
@@ -258,6 +266,11 @@ export const firebaseAuth = {
     return localStorage.getItem('mobile');
   },
 
+  // Get current user UID
+  getCurrentUserUid() {
+    return localStorage.getItem('uid');
+  },
+
   // Check if user is admin (fetches from Firestore)
   async isAdmin() {
     const mobile = this.getCurrentUserMobile();
@@ -269,8 +282,17 @@ export const firebaseAuth = {
   // Get current user from Firestore
   async getCurrentUser() {
     const mobile = this.getCurrentUserMobile();
-    if (!mobile) return null;
-    return await userService.getUserByMobile(mobile);
+    const uid = this.getCurrentUserUid();
+    if (!mobile && !uid) return null;
+    // Prefer fetching by UID if available, fallback to mobile if needed
+    let user = null;
+    if (uid) {
+      user = await userService.getUserByUid(uid); // Assuming you'll add getUserByUid to userService
+    }
+    if (!user && mobile) {
+      user = await userService.getUserByMobile(mobile);
+    }
+    return user;
   },
 
   // Sign in with email and password

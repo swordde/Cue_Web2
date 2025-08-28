@@ -8,7 +8,8 @@ import GameAnalyticsChart from "../components/GameAnalyticsChart";
 import CurrentOccupancy from "../components/CurrentOccupancy";
 import AdminPhoneLookupModal from "../components/AdminPhoneLookupModal";
 
-import { userService } from "../firebase/services";
+import { userService, secureUserService } from "../firebase/services";
+import { getFunctions, httpsCallable } from 'firebase/functions';
 import { useNavigate } from "react-router-dom";
 import { gameService, slotService, bookingService, realtimeService, offlineBookingService, analyticsService, logAdminAction } from "../firebase/services";
 import { collection, query, orderBy, limit, getDocs } from "firebase/firestore";
@@ -140,7 +141,19 @@ export default function AdminPanel() {
     }
   };
 
-  // Function to fetch user details by phone number for offline booking
+  // Debounced user lookup to avoid searching on every keystroke
+  const [phoneSearchTimeout, setPhoneSearchTimeout] = useState(null);
+
+  // Cleanup timeout on component unmount
+  useEffect(() => {
+    return () => {
+      if (phoneSearchTimeout) {
+        clearTimeout(phoneSearchTimeout);
+      }
+    };
+  }, [phoneSearchTimeout]);
+
+  // Function to fetch user details by phone number for offline booking (SECURE)
   const fetchUserByPhoneForOfflineBooking = async (phoneNumber) => {
     if (!phoneNumber || phoneNumber.length < 10) {
       setOfflineBookingFetchedUser(null);
@@ -149,36 +162,81 @@ export default function AdminPanel() {
 
     setOfflineBookingLookupLoading(true);
     try {
-      const existingUser = await userService.getUserByMobile(phoneNumber);
-      if (existingUser) {
-        setOfflineBookingFetchedUser(existingUser);
-        // Auto-fill customer name if user found
+      console.log('🔍 Looking up user by phone:', phoneNumber.substring(0, 8) + '***');
+      
+      // Use secure Cloud Function lookup
+      const { exists, userData, error } = await secureUserService.lookupUserByPhone(phoneNumber);
+      
+      if (exists && userData) {
+        setOfflineBookingFetchedUser(userData);
+        // Auto-fill customer name and mobile
         setNewOfflineBooking({
           ...newOfflineBooking, 
-          customerName: existingUser.name || existingUser.username,
-          customerPhone: phoneNumber
+          customerName: userData.name || 'Unknown User',
+          customerPhone: phoneNumber,
+          customerMobile: phoneNumber  // Ensure customerMobile is set for coin triggers
         });
-        showSuccess(`User found: ${existingUser.name || existingUser.username}`);
+        showSuccess(`✅ User found: ${userData.name} (${userData.totalBookings} bookings)`);
+        console.log('✅ User lookup successful:', {
+          name: userData.name,
+          totalBookings: userData.totalBookings,
+          memberSince: userData.memberSince
+        });
       } else {
         setOfflineBookingFetchedUser(null);
-        showInfo('Phone number not found in database');
+        // Still set the phone for new customer creation
+        setNewOfflineBooking({
+          ...newOfflineBooking,
+          customerPhone: phoneNumber,
+          customerMobile: phoneNumber,
+          customerName: '' // Clear name for manual entry
+        });
+        
+        if (error) {
+          showError(`❌ Lookup error: ${error}`);
+        } else {
+          showSuccess('📱 New customer - please enter name');
+        }
+        console.log('ℹ️ User not found, will create new customer');
       }
     } catch (error) {
-      console.error('Error fetching user for offline booking:', error);
+      console.error('❌ Error in secure user lookup:', error);
       setOfflineBookingFetchedUser(null);
+      showError('Failed to lookup user. Please try again.');
     } finally {
       setOfflineBookingLookupLoading(false);
     }
   };
 
-  // Handle phone input for offline booking
+  // Handle phone input for offline booking with debounce (OPTIMIZED)
   const handleOfflineBookingPhoneChange = (phoneNumber) => {
     const cleanValue = phoneNumber.replace(/\D/g, "");
     
+    // Clear any existing timeout
+    if (phoneSearchTimeout) {
+      clearTimeout(phoneSearchTimeout);
+    }
+    
+    // Update the phone number immediately
+    setNewOfflineBooking({...newOfflineBooking, customerPhone: cleanValue});
+    
+    // Only search if we have 10 digits, and do it after a delay
     if (cleanValue.length === 10) {
-      fetchUserByPhoneForOfflineBooking(cleanValue);
+      console.log('📱 Will search for user in 800ms...');
+      const newTimeout = setTimeout(() => {
+        console.log('🔍 Starting delayed user search...');
+        fetchUserByPhoneForOfflineBooking(cleanValue);
+      }, 800); // Wait 800ms after user stops typing
+      
+      setPhoneSearchTimeout(newTimeout);
     } else {
+      // Clear user data if phone is incomplete
       setOfflineBookingFetchedUser(null);
+      setNewOfflineBooking({
+        ...newOfflineBooking,
+        customerPhone: cleanValue,
+        customerName: ''
+      });
     }
   };
 
@@ -813,37 +871,10 @@ export default function AdminPanel() {
     }
   };
 
-  // Load admin logs from Firestore (only major admin actions)
+  // Admin logs loading disabled - handled server-side only
   const loadAdminLogs = async () => {
-    try {
-      const logsQuery = query(
-        collection(db, 'adminLogs'),
-        orderBy('timestamp', 'desc'),
-        limit(50)
-      );
-      const snapshot = await getDocs(logsQuery);
-      const logs = snapshot.docs.map(doc => ({
-        id: doc.id,
-        ...doc.data(),
-        timestamp: doc.data().timestamp?.toDate?.() || new Date(doc.data().timestamp)
-      }))
-      // Filter only major admin actions (exclude user booking actions)
-      .filter(log => 
-        log.action && (
-          log.action.includes('add game') ||
-          log.action.includes('delete game') ||
-          log.action.includes('update game') ||
-          log.action.includes('add slot') ||
-          log.action.includes('delete slot') ||
-          log.action.includes('update slot') ||
-          log.targetType === 'game' ||
-          log.targetType === 'slot'
-        )
-      );
-      setAdminLogs(logs);
-    } catch (err) {
-      console.error("Failed to load admin logs:", err);
-    }
+    console.log("Admin logs are now managed server-side for security");
+    setAdminLogs([]);
   };
 
   // Load slots for selected games and date from Firestore
@@ -1373,6 +1404,8 @@ export default function AdminPanel() {
         if (bookingUpdates.date instanceof Date) {
           bookingUpdates.date = formatDateForStorage(bookingUpdates.date);
         }
+        // Add customerMobile for coin triggers
+        bookingUpdates.customerMobile = newOfflineBooking.customerPhone || '';
         delete bookingUpdates.id; // Remove ID from updates object
         delete bookingUpdates.createdAt; // Don't update creation timestamp
         await offlineBookingService.updateOfflineBooking(editingBookingId, bookingUpdates);
@@ -1391,25 +1424,7 @@ export default function AdminPanel() {
             );
             if (customer) {
               userId = customer.mobile || customer.email || '';
-              // Only award coins if booking is settled
-              if (newOfflineBooking.settlement === 'SETTLED') {
-                // Get game details to find coin reward
-                const game = games.find(g => g.id === newOfflineBooking.board);
-                coinsAwarded = game?.coins || 0;
-                // Calculate duration-based coins (coins per hour * duration)
-                const duration = newOfflineBooking.duration || 1;
-                coinsAwarded = Math.floor(coinsAwarded * duration);
-                if (coinsAwarded > 0) {
-                  const currentCoins = customer.clubCoins || 0;
-                  // Always use Firestore document ID for update
-                  await userService.updateUser(customer.id, {
-                    clubCoins: currentCoins + coinsAwarded,
-                    updatedAt: new Date().toISOString()
-                  });
-                  console.log(`🪙 Offline Booking: Awarded ${coinsAwarded} coins (${game.coins}/hr × ${duration}h) to ${customer.name} (${customer.mobile})`);
-                  showInfo(`🪙 ${coinsAwarded} coins awarded to ${customer.name}!`);
-                }
-              }
+              
             }
           } catch (coinError) {
             console.error('Error awarding coins for offline booking:', coinError);
@@ -1426,7 +1441,8 @@ export default function AdminPanel() {
           createdBy: adminName,
           type: 'offline',
           userId,
-          coinsAwarded
+          coinsAwarded,
+          customerMobile: newOfflineBooking.customerPhone || '', // CRITICAL: Add for coin triggers
         };
         const savedBooking = await offlineBookingService.addOfflineBooking(booking);
         console.log('New booking created with ID:', savedBooking.id);
@@ -1600,9 +1616,7 @@ export default function AdminPanel() {
 
       // Award coins if settlement changed from not 'SETTLED' to 'SETTLED'
       if (prevBooking && prevBooking.settlement !== 'SETTLED' && updates.settlement === 'SETTLED') {
-        // Find user by name (since offline bookings use names, not mobile numbers)
-        let userId = '';
-        let coinsAwarded = 0;
+        // Use server-side callable to award coins instead of client updates
         if (prevBooking.customerName && prevBooking.board) {
           try {
             const allUsers = await userService.getAllUsers();
@@ -1610,27 +1624,28 @@ export default function AdminPanel() {
               user.name && user.name.toLowerCase() === prevBooking.customerName.toLowerCase()
             );
             if (customer) {
-              userId = customer.mobile || customer.email || '';
+              const userMobile = customer.mobile || customer.email || '';
               // Get game details to find coin reward
               const game = games.find(g => g.id === prevBooking.board);
-              coinsAwarded = game?.coins || 0;
-              // Calculate duration-based coins (coins per hour * duration)
+              let coinsAwarded = game?.coins || 0;
               const duration = prevBooking.duration || 1;
               coinsAwarded = Math.floor(coinsAwarded * duration);
               if (coinsAwarded > 0) {
-                const currentCoins = customer.clubCoins || 0;
-                // Always use Firestore document ID for update
-                await userService.updateUser(customer.id, {
-                  clubCoins: currentCoins + coinsAwarded,
-                  updatedAt: new Date().toISOString()
-                });
-                console.log(`🪙 Offline Booking Update: Awarded ${coinsAwarded} coins (${game.coins}/hr × ${duration}h) to ${customer.name} (${customer.mobile})`);
-                showInfo(`🪙 ${coinsAwarded} coins awarded to ${customer.name}!`);
+                // Call Cloud Function `adminAdjustCoins` (requires admin claim)
+                try {
+                  const functions = getFunctions();
+                  const adminAdjust = httpsCallable(functions, 'adminAdjustCoins');
+                  await adminAdjust({ userMobile, coins: coinsAwarded, reason: `Offline booking settled: ${bookingId}` });
+                  console.log(`🪙 Offline Booking Update: Requested server to award ${coinsAwarded} coins to ${customer.name} (${userMobile})`);
+                  showInfo(`🪙 Requested ${coinsAwarded} coins for ${customer.name}; server will apply it.`);
+                } catch (fnErr) {
+                  console.error('Error calling adminAdjustCoins function:', fnErr);
+                  showError('Failed to request coin award from server.');
+                }
               }
             }
           } catch (coinError) {
-            console.error('Error awarding coins for offline booking update:', coinError);
-            // Don't fail the update if coin awarding fails
+            console.error('Error preparing coin award for offline booking update:', coinError);
           }
         }
       }
@@ -3039,7 +3054,6 @@ export default function AdminPanel() {
                           value={newOfflineBooking.customerPhone}
                           onChange={e => {
                             const cleanValue = e.target.value.replace(/\D/g, "");
-                            setNewOfflineBooking({...newOfflineBooking, customerPhone: cleanValue});
                             handleOfflineBookingPhoneChange(cleanValue);
                           }}
                           placeholder="Enter phone number (10 digits)"

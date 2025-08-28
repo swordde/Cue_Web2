@@ -107,7 +107,7 @@ export default function Home() {
                 <div style={{fontSize: '3rem', marginBottom: '1rem'}}></div>
                 <h5 className="fw-bold mb-2" style={{color: '#ffc107'}}>Premium Gaming</h5>
                 <p className="small mb-0" style={{opacity: '0.8'}}>
-                  PS5, Xbox, Pool, Snooker, Darts & More
+                  PS5,Pool,Snooker,Darts & More
                 </p>
               </div>
             </div>
